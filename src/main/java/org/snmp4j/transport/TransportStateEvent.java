@@ -30,7 +30,7 @@ import org.snmp4j.smi.*;
  * cancelled.
  *
  * @author Frank Fock
- * @version 1.8
+ * @version 2.4
  * @since 1.7
  */
 public class TransportStateEvent extends EventObject {
@@ -46,6 +46,7 @@ public class TransportStateEvent extends EventObject {
   private int newState;
   private Address peerAddress;
   private IOException causingException;
+  private ArrayList<byte[]> discardedMessages;
 
   private boolean cancelled = false;
 
@@ -59,6 +60,15 @@ public class TransportStateEvent extends EventObject {
     this.causingException = causingException;
   }
 
+  public TransportStateEvent(TcpTransportMapping source,
+                             Address peerAddress,
+                             int newState,
+                             IOException causingException,
+                             List<byte[]> discardedMessages) {
+    this(source, peerAddress, newState, causingException);
+    this.discardedMessages = new ArrayList<byte[]>(discardedMessages);
+  }
+
   public IOException getCausingException() {
     return causingException;
   }
@@ -69,6 +79,17 @@ public class TransportStateEvent extends EventObject {
 
   public Address getPeerAddress() {
     return peerAddress;
+  }
+
+  /**
+   * Gets the messages that were discarded due to a state change of the transport connection.
+   * @return
+   *    a (possibly empty) list of messages that were discarded or <code>null</code> if the event has not terminated
+   *    the transport connection.
+   * @since 2.4.0
+   */
+  public List<byte[]> getDiscardedMessages() {
+    return discardedMessages;
   }
 
   /**

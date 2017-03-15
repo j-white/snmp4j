@@ -39,7 +39,7 @@ import org.snmp4j.util.PDUFactory;
  * @version 1.9.2
  */
 public class MPv3
-    implements MessageProcessingModel {
+    implements MessageProcessingModel, EngineIdCacheSize {
 
   public static final int ID = MessageProcessingModel.MPv3;
   public static final int MPv3_REPORTABLE_FLAG = 4;
@@ -72,11 +72,13 @@ public class MPv3
 
   private Cache cache;
   private Map<Address, OctetString> engineIDs;
+  private int maxEngineIdCacheSize = SNMP4JSettings.getMaxEngineIdCacheSize();
   private byte[] localEngineID;
 
   private int currentMsgID = new Random().nextInt(MAX_MESSAGE_ID);
 
   private CounterSupport counterSupport;
+  protected EngineIdCacheFactory engineIdCacheFactory = new LimitedCapacityEngineIdCacheFactory();
 
   transient List<SnmpEngineListener> snmpEngineListeners;
 
@@ -120,7 +122,7 @@ public class MPv3
    */
   public MPv3(byte[] localEngineID, PDUFactory incomingPDUFactory) {
     this(localEngineID, incomingPDUFactory, SecurityProtocols.getInstance(),
-         SecurityModels.getInstance(), CounterSupport.getInstance());
+        SecurityModels.getInstance(), CounterSupport.getInstance());
   }
 
   /**
@@ -133,9 +135,9 @@ public class MPv3
    */
   public MPv3(USM usm) {
     this(usm.getLocalEngineID().getValue(), null,
-         SecurityProtocols.getInstance(),
-         SecurityModels.getCollection(new SecurityModel[] { usm }),
-         CounterSupport.getInstance());
+        SecurityProtocols.getInstance(),
+        SecurityModels.getCollection(new SecurityModel[]{usm}),
+        CounterSupport.getInstance());
   }
 
   /**
@@ -163,13 +165,13 @@ public class MPv3
    * @since 1.10
    */
   public MPv3(byte[] localEngineID, PDUFactory incomingPDUFactory,
-              SecurityProtocols secProtocols,
-              SecurityModels secModels,
-              CounterSupport counterSupport) {
+      SecurityProtocols secProtocols,
+      SecurityModels secModels,
+      CounterSupport counterSupport) {
     if (incomingPDUFactory != null) {
       this.incomingPDUFactory = incomingPDUFactory;
     }
-    engineIDs = new Hashtable<Address, OctetString>();
+    engineIDs = engineIdCacheFactory.createEngineIdMap(this);
     cache = new Cache();
     if (secProtocols == null) {
       throw new NullPointerException();
@@ -187,13 +189,60 @@ public class MPv3
   }
 
   /**
+   * Returns the enging ID factory that was used to create the current engine ID cache.
+   * @return
+   *    a {@link org.snmp4j.mp.MPv3.EngineIdCacheFactory} implementation.
+   * @since 2.3.4
+   */
+  public EngineIdCacheFactory getEngineIdCacheFactory() {
+    return engineIdCacheFactory;
+  }
+
+  /**
+   * Sets the engine ID cache factory and resets (clears) the current cache. The maximum size of the
+   * cache is determined using {@link #getMaxEngineIdCacheSize()} as this implements the {@link EngineIdCacheSize}
+   * interface. By default the maximum cache size {@link SNMP4JSettings#getMaxEngineIdCacheSize()} is used.
+   * @param engineIdCacheFactory
+   *    a {@link org.snmp4j.mp.MPv3.EngineIdCacheFactory} implementation that is used to create a new cache.
+   * @since 2.3.4
+   */
+  public void setEngineIdCacheFactory(EngineIdCacheFactory engineIdCacheFactory) {
+    engineIDs = engineIdCacheFactory.createEngineIdMap(this);
+    this.engineIdCacheFactory = engineIdCacheFactory;
+  }
+
+  @Override
+  public int getMaxEngineIdCacheSize() {
+    return maxEngineIdCacheSize;
+  }
+
+  /**
+   * Sets the upper limit for the engine ID cache. Modifying this value will not immediately
+   * take effect on the cache size.
+   * @param maxEngineIdCacheSize
+   *    the maximum number of engine IDs hold in the internal cache. If more than
+   *    those engine IDs are used by the MPv3, the eldest engine ID is removed
+   *    from the cache. Eldest means the eldest initial use.
+   *    A different cache can be implemented by using a custom
+   *    {@link EngineIdCacheFactory} and setting it after calling
+   *    this constructor.
+   */
+  public void setMaxEngineIdCacheSize(int maxEngineIdCacheSize) {
+    this.maxEngineIdCacheSize = maxEngineIdCacheSize;
+  }
+
+  /**
    * Creates a local engine ID based on the local IP address and additional four random bytes.
+   * WARNING: Do not use this engine ID generator for a command responder (agent) if you DO NOT
+   * persistently save the one time generated engine ID for subsequent use when the agent is
+   * restarted.
    *
    * @return
-   *    a new local engine ID.
+   *    a new local engine ID with a random part to avoid engine ID clashes for multiple command
+   *    generators on the same system.
    */
   public static byte[] createLocalEngineID() {
-    int enterpriseID =SNMP4JSettings.getEnterpriseID();
+    int enterpriseID = SNMP4JSettings.getEnterpriseID();
     byte[] engineID = new byte[5];
     engineID[0] = (byte)(0x80 | ((enterpriseID >> 24) & 0xFF));
     engineID[1] = (byte)((enterpriseID >> 16) & 0xFF);
@@ -332,15 +381,51 @@ public class MPv3
    */
   public boolean addEngineID(Address address, OctetString engineID) {
     if (!Arrays.equals(this.localEngineID, engineID.getValue())) {
-      OctetString previousEngineID = engineIDs.put(address, engineID);
-      if ((snmpEngineListeners != null) && ((previousEngineID == null) || (!previousEngineID.equals(engineID)))) {
+      try {
+        OctetString previousEngineID = addEngineIdToCache(address, engineID);
+        if ((snmpEngineListeners != null) && ((previousEngineID == null) || (!previousEngineID.equals(engineID)))) {
+          fireEngineChanged(new SnmpEngineEvent(this,
+              SnmpEngineEvent.ADDED_ENGINE_ID,
+              engineID, address));
+        }
+      }
+      catch (IllegalArgumentException iaex) {
         fireEngineChanged(new SnmpEngineEvent(this,
-                                              SnmpEngineEvent.ADDED_ENGINE_ID,
-                                              engineID, address));
+            SnmpEngineEvent.IGNORED_ENGINE_ID,
+            engineID, address));
+        return false;
       }
       return true;
     }
     return false;
+  }
+
+  /**
+   * Put the engine ID for the given address into the internal cache. If the cache
+   * reached its limit,
+   * @param address
+   *    the address of the engine ID
+   * @param engineID
+   *    the engine ID to cache.
+   * @return
+   *    the previous engine ID or <code>null</code> if there was no engine ID
+   *    cached for the given address.
+   * @throws IllegalArgumentException when the local maximum cache size is exceeded.
+   * @since 2.3.4
+   */
+  protected OctetString addEngineIdToCache(Address address, OctetString engineID) {
+     if ((maxEngineIdCacheSize > 0) && (engineIDs.size() >= maxEngineIdCacheSize)) {
+       if (engineIDs.containsKey(address)) {
+         return engineIDs.put(address, engineID);
+       }
+       String msg = "MPv3: Failed to add engineID '"+engineID.toHexString()+"' for address '"+address+
+           "' to local cache because its size limit of "+maxEngineIdCacheSize+"has been reached";
+       logger.warn(msg);
+       throw new IllegalArgumentException(msg);
+     }
+     else {
+       return engineIDs.put(address, engineID);
+     }
   }
 
   /**
@@ -430,9 +515,11 @@ public class MPv3
     /**
      * Adds a <code>StateReference</code> to the cache.
      * The <code>PduHandle</code> of the supplied entry will be set to
-     * <code>null</code> while the entry is part of the cache, because the
+     * <code>null</code> when the new entry is already part of the cache, because the
      * cache uses a <code>WeakHashMap</code> internally which uses the
-     * <code>PduHandle</code> as key. When
+     * <code>PduHandle</code> as key. If the new entry equals an existing entry
+     * except of the message ID then the new message ID will be added to the
+     * existing entry.
      * @param entry
      *    the state reference to add.
      * @return
@@ -446,19 +533,31 @@ public class MPv3
       StateReference existing =
               entries.get(entry.getPduHandle());
       if (existing != null) {
+        // reassign handle for comparison:
+        existing.setPduHandle(entry.getPduHandle());
         if (existing.equals(entry)) {
           if (logger.isDebugEnabled()) {
             logger.debug("Doubled message: "+entry);
           }
+          // clear it again to remove strong self-reference
+          existing.setPduHandle(null);
           return SnmpConstants.SNMP_MP_DOUBLED_MESSAGE;
         }
         else if (existing.equalsExceptMsgID(entry)) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("Adding previous message IDs "+existing.getMessageIDs()+"  to new entry "+entry);
+          }
           entry.addMessageIDs(existing.getMessageIDs());
         }
+        else if (logger.isDebugEnabled()) {
+          logger.debug("New entry does not match existing, although request ID is the same "+entry+" != "+existing);
+        }
+        // clear it again to remove strong self-reference
+        existing.setPduHandle(null);
       }
       // add it
       PduHandle key = entry.getPduHandle();
-      // because we are using a weak has map for the cache, we need to null out
+      // because we are using a weak hash map for the cache, we need to null out
       // our key from the entry.
       entry.setPduHandle(null);
       entries.put(key, entry);
@@ -510,7 +609,7 @@ public class MPv3
    * @author Frank Fock
    * @version 1.0
    */
-  protected static class HeaderData
+  public static class HeaderData
       implements BERSerializable {
 
     public static final byte FLAG_AUTH = 0x01;
@@ -661,8 +760,7 @@ public class MPv3
     // lookup engine ID
     byte[] secEngineID;
     if (secModel.hasAuthoritativeEngineID()) {
-      OctetString securityEngineID =
-          engineIDs.get(transportAddress);
+      OctetString securityEngineID = engineIDs.get(transportAddress);
       if (securityEngineID != null) {
         secEngineID = securityEngineID.getValue();
         if (scopedPDU.getContextEngineID().length() == 0) {
@@ -883,16 +981,16 @@ public class MPv3
 
     int status =
         secModel.generateResponseMessage(getID(),
-                                         globalDataBuffer.array(),
-                                         maxMessageSize,
-                                         securityModel,
-                                         securityEngineID.getValue(),
-                                         securityName,
-                                         securityLevel,
-                                         scopedPDUInput,
-                                         cacheEntry.getSecurityStateReference(),
-                                         securityParameters,
-                                         outgoingMessage);
+            globalDataBuffer.array(),
+            maxMessageSize,
+            securityModel,
+            securityEngineID.getValue(),
+            securityName,
+            securityLevel,
+            scopedPDUInput,
+            cacheEntry.getSecurityStateReference(),
+            securityParameters,
+            outgoingMessage);
     return status;
   }
 
@@ -1103,8 +1201,8 @@ public class MPv3
           scopedPdu.decodeBER(scopedPduStream);
           sendPduHandle.setTransactionID(scopedPdu.getRequestID().getValue());
 
-          // add the engine ID to the local cache.
-          if ((securityEngineID != null) && (securityEngineID.length() > 0)) {
+          // add the engine ID to the local cache if it is a report or response, do not add traps.
+          if ((securityEngineID.length() > 0) && scopedPdu.isResponsePdu()) {
             addEngineID(transportAddress, securityEngineID);
           }
         }
@@ -1234,7 +1332,7 @@ public class MPv3
                 logger.warn("Engine ID '"+securityEngineID+
                             "' could not be added to engine ID cache for "+
                             "target address '"+cacheEntry.getAddress()+
-                            "' because engine ID matches local engine ID");
+                            "' because engine ID matches local engine ID or cache size limit is reached");
               }
             }
             //cache.deleteEntry(cacheEntry.getPduHandle());
@@ -1432,6 +1530,16 @@ public class MPv3
   }
 
   /**
+   * Get the number of cached engine IDs.
+   * @return
+   *    size of the internal engine ID cache.
+   * @since 2.3.4
+   */
+  public int getEngineIdCacheSize() {
+    return engineIDs.size();
+  }
+
+  /**
    * Creates a PDU class that is used to parse incoming SNMP messages.
    * @param target
    *    the <code>target</code> parameter must be ignored.
@@ -1454,10 +1562,32 @@ public class MPv3
   protected void fireEngineChanged(SnmpEngineEvent engineEvent) {
     if (snmpEngineListeners != null) {
       List<SnmpEngineListener> listeners = snmpEngineListeners;
-      int count = listeners.size();
       for (SnmpEngineListener listener : listeners) {
         listener.engineChanged(engineEvent);
       }
+    }
+  }
+
+  /**
+   * The <code>EngineIdCacheFactory</code> creates an engine ID cache with upper limit.
+   */
+  public interface EngineIdCacheFactory {
+    /**
+     * Create a engine ID map with the given maximum capacity. If more than those engine IDs are added,
+     * the eldest engine IDs will be removed from the map before the new one is added.
+     * @param maximumCapacity
+     *   the upper limit of the number of engine ID mappings in this map.
+     * @return
+     *   the created map.
+     */
+    Map<Address, OctetString> createEngineIdMap(org.snmp4j.mp.EngineIdCacheSize maximumCapacity);
+  }
+
+  private static class LimitedCapacityEngineIdCacheFactory implements EngineIdCacheFactory {
+    @Override
+    public Map<Address, OctetString> createEngineIdMap(final org.snmp4j.mp.EngineIdCacheSize cacheSize) {
+      Map<Address, OctetString> map = new HashMap<Address, OctetString>();
+      return Collections.synchronizedMap(map);
     }
   }
 }

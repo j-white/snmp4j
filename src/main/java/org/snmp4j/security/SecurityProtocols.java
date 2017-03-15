@@ -152,6 +152,8 @@ public class SecurityProtocols implements Serializable {
     else {
       addAuthenticationProtocol(new AuthMD5());
       addAuthenticationProtocol(new AuthSHA());
+      addAuthenticationProtocol(new AuthHMAC192SHA256());
+      addAuthenticationProtocol(new AuthHMAC384SHA512());
       addPrivacyProtocol(new PrivDES());
       addPrivacyProtocol(new PrivAES128());
       addPrivacyProtocol(new PrivAES192());

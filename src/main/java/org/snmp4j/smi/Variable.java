@@ -49,7 +49,9 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
 
   /**
    * Clones this variable. Cloning can be used by the SNMP4J API to better
-   * support concurrency by creating a immutable clone for internal processing.
+   * support concurrency by creating a clone for internal processing.
+   * The content of this object is independent to the content of the clone.
+   * Thus, changes to the clone will have no effect to this object.
    *
    * @return
    *    a new instance of this <code>Variable</code> with the same value.

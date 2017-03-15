@@ -927,7 +927,8 @@ public class TLSTM extends TcpTransportMapping {
             }
           } catch (IOException iox) {
             logger.error("IO exception caught while SSL processing: "+iox.getMessage(), iox);
-            while (entry != null && inQueue.remove(entry)) {
+            while (inQueue.remove(entry)) {
+              // no body
             }
           } catch (InterruptedException e) {
             logger.error("SSL processing interrupted: "+e.getMessage(), e);
@@ -941,12 +942,6 @@ public class TLSTM extends TcpTransportMapping {
             synchronized (entry.inboundLock) {
               entry.inNetBuffer.flip();
               logger.debug("TLS inNetBuffer = "+entry.inNetBuffer);
-/*
-            if (entry.inNetBuffer.limit() < entry.inNetBuffer.capacity()) {
-              entry.inNetBuffer.limit(entry.inNetBuffer.capacity());
-              entry.addRegistration(selector, SelectionKey.OP_READ);
-              continue;
-            } */
               SSLEngineResult nextResult =
                   entry.sslEngine.unwrap(entry.inNetBuffer, entry.inAppBuffer);
               adjustInNetBuffer(entry, nextResult);
@@ -979,7 +974,8 @@ public class TLSTM extends TcpTransportMapping {
             }
           } catch (IOException iox) {
             logger.error("IO exception caught while SSL processing: "+iox.getMessage(), iox);
-            while (entry != null && inQueue.remove(entry)) {
+            while (inQueue.remove(entry)) {
+              // no body
             }
           } catch (InterruptedException e) {
             logger.error("SSL processing interrupted: "+e.getMessage(), e);

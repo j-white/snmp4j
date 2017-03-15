@@ -39,7 +39,7 @@ import java.util.Arrays;
 public abstract class RetrievalEvent extends EventObject {
 
   /**
-   * Retrieval operation was successfull.
+   * Retrieval operation was successful.
    */
   public static final int STATUS_OK = SnmpConstants.SNMP_ERROR_SUCCESS;
   /**
@@ -56,7 +56,7 @@ public abstract class RetrievalEvent extends EventObject {
    */
   public static final int STATUS_REPORT = SnmpConstants.SNMP_ERROR_REPORT;
   /**
-   * An exception occured during retrieval operation.
+   * An exception occurred during retrieval operation.
    * @see #getException()
    */
   public static final int STATUS_EXCEPTION = -4;
@@ -137,7 +137,8 @@ public abstract class RetrievalEvent extends EventObject {
    * @return
    *    one of the status constants defined for this object.
    *    {@link #STATUS_OK} indicates success, all other values indicate
-   *    failure of the operation.
+   *    failure of the operation which corresponds to a SNMP error status
+   *    as defined by {@link org.snmp4j.PDU#getErrorStatus()}.
    */
   public int getStatus() {
     return status;

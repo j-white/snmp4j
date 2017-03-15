@@ -93,7 +93,8 @@ public class UsmTimeTable implements Serializable {
    * @since 1.2
    */
   public int getEngineTime() {
-    return (int)(((System.nanoTime() - lastLocalTimeChange) / TIME_PRECISION) %
+    return (int)((((System.nanoTime() - lastLocalTimeChange) / TIME_PRECISION) +
+          localTime.getLatestReceivedTime()) %
                  2147483648L);
   }
 
@@ -130,12 +131,14 @@ public class UsmTimeTable implements Serializable {
   }
 
   public synchronized int checkEngineID(OctetString engineID,
-                                        boolean discoveryAllowed) {
+                                        boolean discoveryAllowed,
+                                        int engineBoots,
+                                        int engineTime ) {
     if (table.get(engineID) != null) {
       return SnmpConstants.SNMPv3_USM_OK;
     }
     else if (discoveryAllowed) {
-      addEntry(new UsmTimeEntry(engineID, 0, 0));
+      addEntry(new UsmTimeEntry(engineID, engineBoots, engineTime));
       return SnmpConstants.SNMPv3_USM_OK;
     }
     return SnmpConstants.SNMPv3_USM_UNKNOWN_ENGINEID;

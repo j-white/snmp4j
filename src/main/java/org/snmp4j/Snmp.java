@@ -174,6 +174,8 @@ public class Snmp implements Session, CommandResponder {
       Collections.synchronizedMap(new HashMap<Address,OctetString>());
   private boolean contextEngineIdDiscoveryDisabled;
 
+  private CounterSupport counterSupport;
+
   /**
    * Creates a <code>Snmp</code> instance that uses a
    * <code>MessageDispatcherImpl</code> with no message processing
@@ -207,6 +209,9 @@ public class Snmp implements Session, CommandResponder {
    */
   public Snmp() {
     this.messageDispatcher = new MessageDispatcherImpl();
+    if (SNMP4JSettings.getSnmp4jStatistics() != SNMP4JSettings.Snmp4jStatistics.none) {
+      counterSupport = CounterSupport.getInstance();
+    }
   }
 
   /**
@@ -216,7 +221,7 @@ public class Snmp implements Session, CommandResponder {
    * @version 1.6
    * @since 1.6
    */
-  public static interface ReportHandler {
+  public interface ReportHandler {
     void processReport(PduHandle pduHandle, CommandResponderEvent event);
   }
 
@@ -249,7 +254,7 @@ public class Snmp implements Session, CommandResponder {
    *    the initial <code>TransportMapping</code>. You can add more or remove
    *    the same later.
    */
-  public Snmp(TransportMapping transportMapping) {
+  public Snmp(TransportMapping<? extends Address> transportMapping) {
     this();
     initMessageDispatcher();
     if (transportMapping != null) {
@@ -294,11 +299,14 @@ public class Snmp implements Session, CommandResponder {
    *    {@link #removeTransportMapping} respectively.
    */
   public Snmp(MessageDispatcher messageDispatcher,
-              TransportMapping transportMapping) {
+              TransportMapping<? extends Address> transportMapping) {
     this.messageDispatcher = messageDispatcher;
     this.messageDispatcher.addCommandResponder(this);
     if (transportMapping != null) {
       addTransportMapping(transportMapping);
+    }
+    if (SNMP4JSettings.getSnmp4jStatistics() != SNMP4JSettings.Snmp4jStatistics.none) {
+      counterSupport = CounterSupport.getInstance();
     }
   }
 
@@ -343,6 +351,9 @@ public class Snmp implements Session, CommandResponder {
   public Snmp(MessageDispatcher messageDispatcher) {
     this.messageDispatcher = messageDispatcher;
     this.messageDispatcher.addCommandResponder(this);
+    if (SNMP4JSettings.getSnmp4jStatistics() != SNMP4JSettings.Snmp4jStatistics.none) {
+      counterSupport = CounterSupport.getInstance();
+    }
   }
 
   /**
@@ -360,7 +371,7 @@ public class Snmp implements Session, CommandResponder {
    * @param transportMapping
    *    a <code>TransportMapping</code> instance.
    */
-  public void addTransportMapping(TransportMapping transportMapping) {
+  public void addTransportMapping(TransportMapping<? extends Address> transportMapping) {
     // connect transport mapping with message dispatcher
     messageDispatcher.addTransportMapping(transportMapping);
     transportMapping.addTransportListener(messageDispatcher);
@@ -373,7 +384,7 @@ public class Snmp implements Session, CommandResponder {
    * @param transportMapping
    *    a previously added <code>TransportMapping</code>.
    */
-  public void removeTransportMapping(TransportMapping<Address> transportMapping) {
+  public void removeTransportMapping(TransportMapping<? extends Address> transportMapping) {
     messageDispatcher.removeTransportMapping(transportMapping);
     transportMapping.removeTransportListener(messageDispatcher);
   }
@@ -462,9 +473,7 @@ public class Snmp implements Session, CommandResponder {
    *    {@link TransportMapping#listen()} method has been called.
    */
   public void listen() throws IOException {
-    for (Iterator<TransportMapping> it = messageDispatcher.getTransportMappings().iterator();
-         it.hasNext(); ) {
-      TransportMapping tm = it.next();
+    for (TransportMapping tm : messageDispatcher.getTransportMappings()) {
       if (!tm.isListening()) {
         tm.listen();
       }
@@ -1244,6 +1253,7 @@ public class Snmp implements Session, CommandResponder {
       request.responseReceived = false;
       synchronized (pendingRequests) {
         pendingRequests.remove(request.key);
+        PduHandle holdKeyUntilResendDone = request.key;
         request.key = null;
         handleInternalResponse(response, request.pdu, request.target.getAddress());
         try {
@@ -1253,6 +1263,11 @@ public class Snmp implements Session, CommandResponder {
           logger.error("IOException while resending request after RFC 5343 context engine ID discovery: " +
               e.getMessage(), e);
         }
+        // now the previous retry can be released
+        if (logger.isDebugEnabled()) {
+          logger.debug("Releasing PDU handle "+holdKeyUntilResendDone);
+        }
+        holdKeyUntilResendDone = null;
       }
       return true;
     }
@@ -1467,6 +1482,32 @@ public class Snmp implements Session, CommandResponder {
   }
 
   /**
+   * Gets the counter support for Snmp related counters. These are for example:
+   * snmp4jStatsRequestTimeouts,
+   * snmp4jStatsRequestTimeouts,
+   * snmp4jStatsRequestWaitTime
+   * @return
+   *   the counter support if available. If the {@link SNMP4JSettings#getSnmp4jStatistics()} value is
+   *   {@link org.snmp4j.SNMP4JSettings.Snmp4jStatistics#none} then no counter support will be created
+   *   and no statistics will be collected.
+   * @since 2.4.2
+   */
+  public CounterSupport getCounterSupport() {
+    return counterSupport;
+  }
+
+  /**
+   * Sets the counter support instance to handle counter events on behalf of this Snmp instance.
+   * @param counterSupport
+   *   the counter support instance that collects the statistics events created by this Snmp instance.
+   *   See also {@link #getCounterSupport()}.
+   * @since 2.4.2
+   */
+  public void setCounterSupport(CounterSupport counterSupport) {
+    this.counterSupport = counterSupport;
+  }
+
+  /**
    * Sets the timeout model for this SNMP session. The default timeout model
    * sends retries whenever the time specified by the <code>timeout</code>
    * parameter of the target has elapsed without a response being received for
@@ -1494,6 +1535,26 @@ public class Snmp implements Session, CommandResponder {
       throw new IllegalArgumentException("ReportHandler must not be null");
     }
     this.reportHandler = reportHandler;
+  }
+
+  /**
+   * Gets the number of currently pending synchronous requests.
+   * @return
+   *    the size of the synchronous request queue.
+   * @since 2.4.2
+   */
+  public int getPendingSyncRequestCount() {
+    return pendingRequests.size();
+  }
+
+  /**
+   * Gets the number of currently pending asynchronous requests.
+   * @return
+   *    the size of the asynchronous request queue.
+   * @since 2.4.2
+   */
+  public int getPendingAsyncRequestCount() {
+    return asyncRequests.size();
   }
 
   private boolean isEmptyContextEngineID(PDU pdu) {
@@ -1527,6 +1588,9 @@ public class Snmp implements Session, CommandResponder {
     private volatile boolean pendingRetry = false;
     private volatile boolean cancelled = false;
 
+    private CounterEvent waitTime;
+    private CounterEvent waitTimeTarget;
+
     /**
      * The <code>nextPDU</code> field holds a PDU that has to be sent
      * when the response of the <code>pdu</code> has been received.
@@ -1545,6 +1609,13 @@ public class Snmp implements Session, CommandResponder {
       this.pdu = pdu;
       this.target = (Target) target.clone();
       this.transport = transport;
+      if (SNMP4JSettings.getSnmp4jStatistics() != SNMP4JSettings.Snmp4jStatistics.none) {
+        waitTime = new CounterEvent(this, SnmpConstants.snmp4jStatsRequestWaitTime, System.nanoTime());
+        if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
+          waitTimeTarget =
+              new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableWaitTime, target, System.nanoTime());
+        }
+      }
       if (isEmptyContextEngineID(pdu)) {
         OctetString contextEngineID =  contextEngineIDs.get(target.getAddress());
         if (contextEngineID != null) {
@@ -1566,6 +1637,7 @@ public class Snmp implements Session, CommandResponder {
       this.responseReceived = other.responseReceived;
       this.transport = other.transport;
       this.nextPDU = other.nextPDU;
+      this.waitTime = other.waitTime;
     }
 
     private void discoverContextEngineID() {
@@ -1607,6 +1679,18 @@ public class Snmp implements Session, CommandResponder {
 
     public void responseReceived() {
       this.responseReceived = true;
+      if (waitTime != null) {
+        CounterSupport counterSupport = getCounterSupport();
+        if (counterSupport != null) {
+          long increment = (System.nanoTime()-waitTime.getIncrement())/SnmpConstants.MILLISECOND_TO_NANOSECOND;
+          waitTime.setIncrement(increment);
+          counterSupport.fireIncrementCounter(waitTime);
+          if (waitTimeTarget != null) {
+            waitTimeTarget.setIncrement(increment);
+            counterSupport.fireIncrementCounter(waitTimeTarget);
+          }
+        }
+      }
     }
 
     public PDU getNextPDU() {
@@ -1693,6 +1777,17 @@ public class Snmp implements Session, CommandResponder {
             PendingRequest nextRetry = new PendingRequest(this);
             sendMessage(m_pdu, m_target, m_transport, nextRetry);
             this.pendingRetry = false;
+            if (waitTime != null) {
+              CounterSupport counterSupport = getCounterSupport();
+              if (counterSupport != null) {
+                counterSupport.fireIncrementCounter(
+                    new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsRequestRetries));
+                if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
+                  counterSupport.fireIncrementCounter(
+                      new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableRetries, m_target, 1));
+                }
+              }
+            }
           }
           catch (IOException ex) {
             ResponseListener l = listener;
@@ -1767,6 +1862,18 @@ public class Snmp implements Session, CommandResponder {
     public boolean cancel(){
       cancelled = true;
       boolean result = super.cancel();
+      Target m_target = target;
+      if (waitTime != null && !isResponseReceived()) {
+        CounterSupport counterSupport = getCounterSupport();
+        if (counterSupport != null) {
+          counterSupport.fireIncrementCounter(
+              new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsRequestTimeouts));
+          if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
+            counterSupport.fireIncrementCounter(
+                new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableTimeouts, m_target, 1));
+          }
+        }
+      }
 
       // free objects early
       if (!pendingRetry) {

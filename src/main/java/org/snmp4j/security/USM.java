@@ -218,6 +218,22 @@ public class USM extends SNMPv3SecurityModel {
     return true;
   }
 
+  /**
+   * Looks up a {@link org.snmp4j.security.UsmUserEntry} by an engine ID and
+   * security name. If an user exists that is not localized for the provided
+   * engine ID, it will be localized and then the localized user entry is
+   * returned. If the provided engine ID has a zero length then an empty
+   * {@link org.snmp4j.security.UsmUserEntry} is returned with just the provided
+   * securityName set.
+   * @param engineID
+   *    an engine ID.
+   * @param securityName
+   *    a security name.
+   * @return
+   *    an localized {@link org.snmp4j.security.UsmUserEntry} if the provided
+   *    engineID's length is greater than zero and <code>null</code> if the
+   *    securityName cannot be found in the USM.
+   */
   public UsmUserEntry getUser(OctetString engineID, OctetString securityName) {
     if (logger.isDebugEnabled()) {
       logger.debug("getUser(engineID="+engineID.toHexString()+
@@ -375,14 +391,14 @@ public class USM extends SNMPv3SecurityModel {
                    MPv3.MAXLEN_ENGINE_ID+ " for "+
                    new OctetString(usmSecurityParams.getAuthoritativeEngineID())
                    .toHexString());
-      return SnmpConstants.SNMPv3_USM_ERROR;
+      return SnmpConstants.SNMPv3_USM_ENGINE_ID_TOO_LONG;
     }
     if (securityName.length > MAXLEN_USMUSERNAME) {
       logger.error("Security name too long: "+
                    usmSecurityParams.getAuthoritativeEngineID().length+">"+
                    MAXLEN_USMUSERNAME+ " for "+
                    new OctetString(securityName).toHexString());
-      return SnmpConstants.SNMPv3_USM_ERROR;
+      return SnmpConstants.SNMPv3_USM_SECURITY_NAME_TOO_LONG;
     }
 
     if (securityLevel >= SecurityLevel.AUTH_NOPRIV) {
@@ -458,8 +474,9 @@ public class USM extends SNMPv3SecurityModel {
     byte[] wholeMessage;
     if (securityLevel >= SecurityLevel.AUTH_NOPRIV) {
       /* Build message with authentication */
+      AuthenticationProtocol authenticationProtocol = usmSecurityParams.getAuthenticationProtocol();
       byte[] blank =
-          new byte[AuthenticationProtocol.MESSAGE_AUTHENTICATION_CODE_LENGTH];
+          new byte[authenticationProtocol.getAuthenticationCodeLength()];
       usmSecurityParams.setAuthenticationParameters(new OctetString(blank));
       wholeMessage =
           buildWholeMessage(new Integer32(snmpVersion),
@@ -476,8 +493,7 @@ public class USM extends SNMPv3SecurityModel {
                        wholeMessage.length,
                        new ByteArrayWindow(wholeMessage,
                                            authParamsPos,
-                                           AuthenticationProtocol.
-                                           MESSAGE_AUTHENTICATION_CODE_LENGTH));
+                                           authenticationProtocol.getAuthenticationCodeLength()));
 
       if (!authOK) {
         if (logger.isDebugEnabled()) {
@@ -548,7 +564,9 @@ public class USM extends SNMPv3SecurityModel {
 
     if ((securityEngineID.length() == 0) ||
         (timeTable.checkEngineID(securityEngineID,
-                                 isEngineDiscoveryEnabled()) !=
+                                 isEngineDiscoveryEnabled(),
+                                 usmSecurityParameters.getAuthoritativeEngineBoots(),
+                                 usmSecurityParameters.getAuthoritativeEngineTime()) !=
          SnmpConstants.SNMPv3_USM_OK)) {
       // generate report
       if (logger.isDebugEnabled()) {
@@ -565,9 +583,9 @@ public class USM extends SNMPv3SecurityModel {
         statusInfo.setSecurityLevel(new Integer32(securityLevel));
         statusInfo.setErrorIndication(new VariableBinding(event.getOid(),
               event.getCurrentValue()));
-        }
-        return SnmpConstants.SNMPv3_USM_UNKNOWN_ENGINEID;
       }
+      return SnmpConstants.SNMPv3_USM_UNKNOWN_ENGINEID;
+    }
 
     securityName.setValue(usmSecurityParameters.getUserName().getValue());
 
@@ -662,7 +680,7 @@ public class USM extends SNMPv3SecurityModel {
               auth.isAuthentic(user.getAuthenticationKey(),
                                message, 0, message.length,
                                new ByteArrayWindow(message, authParamsPos,
-              AuthenticationProtocol.MESSAGE_AUTHENTICATION_CODE_LENGTH));
+                               auth.getAuthenticationCodeLength()));
           if (!authentic) {
             if (logger.isDebugEnabled()) {
               logger.debug(
@@ -812,6 +830,12 @@ public class USM extends SNMPv3SecurityModel {
    * Adds an USM user to the internal user name table and associates it with
    * an authoritative engine ID. This user can only be used with the specified
    * engine ID - other engine IDs cannot be discovered on behalf of this entry.
+   * <p>
+   * The engine ID must be at least {@link MPv3#MINLEN_ENGINE_ID} bytes long and
+   * not longer than {@link MPv3#MAXLEN_ENGINE_ID}.
+   * </p>
+   * The security name of the <code>user</code> must be not longer than {@link #MAXLEN_USMUSERNAME}
+   * bytes.
    * @param userName
    *    a user name.
    * @param engineID
@@ -820,11 +844,28 @@ public class USM extends SNMPv3SecurityModel {
    *    like {@link #addUser(OctetString userName, UsmUser user)}.
    * @param user
    *    the <code>UsmUser</code> to add.
+   * @throws
+   *    IllegalArgumentException if (a) the length of the engine ID is less than
+   *    {@link MPv3#MINLEN_ENGINE_ID} or more than {@link MPv3#MAXLEN_ENGINE_ID} bytes
+   *    (b) if the security name of the <code>user</code> is longer than
+   *    {@link #MAXLEN_USMUSERNAME}.
    */
   public void addUser(OctetString userName, OctetString engineID, UsmUser user) {
     byte[] authKey = null;
     byte[] privKey = null;
+    if (user.getSecurityName().length() > MAXLEN_USMUSERNAME) {
+      String txt = "User '"+user.getSecurityName()+
+          "' not added because of its too long security name with length "+user.getSecurityName().length();
+      logger.warn(txt);
+      throw new IllegalArgumentException(txt);
+    }
     if ((engineID != null) && (engineID.length() > 0)) {
+      if (engineID.length() < MPv3.MINLEN_ENGINE_ID || engineID.length() > MPv3.MAXLEN_ENGINE_ID) {
+        String txt = "User '"+userName+
+            "' not added because of an engine ID of incorrect length "+engineID.length();
+        logger.warn(txt);
+        throw new IllegalArgumentException(txt);
+      }
       if (user.getAuthenticationProtocol() != null) {
         if (user.isLocalized()) {
           authKey = user.getAuthenticationPassphrase().getValue();
@@ -1119,7 +1160,7 @@ public class USM extends SNMPv3SecurityModel {
 
   /**
    * Gets the counter support instance that can be used to register for
-   * counter incremnetation events.
+   * counter incrementation events.
    * @return
    *    a <code>CounterSupport</code> instance that is used to fire
    *    {@link CounterEvent}.

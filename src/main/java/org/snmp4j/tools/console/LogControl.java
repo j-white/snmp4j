@@ -115,7 +115,7 @@ public class LogControl {
       }
     }
     else {
-      TransportMapping localTransport = null;
+      TransportMapping<UdpAddress> localTransport = null;
       try {
         localTransport =
             new DefaultUdpTransportMapping(new UdpAddress("0.0.0.0/0"));
@@ -252,6 +252,7 @@ public class LogControl {
         wait();
       }
       catch (InterruptedException ex) {
+        // ignore
       }
     }
   }

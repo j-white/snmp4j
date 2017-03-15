@@ -36,6 +36,7 @@ public final class SnmpConstants {
   public static final int MIN_PDU_LENGTH = 484;
 
   public static final int MILLISECOND_TO_NANOSECOND = 1000000;
+  public static final int HUNDREDTHS_TO_NANOSECOND = 10000000;
 
   public static final int version1  = 0;
   public static final int version2c = 1;
@@ -111,6 +112,8 @@ public final class SnmpConstants {
   public static final int SNMPv3_USM_UNSUPPORTED_AUTHPROTOCOL    = 1412;
   public static final int SNMPv3_USM_UNSUPPORTED_PRIVPROTOCOL    = 1413;
   public static final int SNMPv3_USM_ADDRESS_ERROR               = 1414;
+  public static final int SNMPv3_USM_ENGINE_ID_TOO_LONG          = 1415;
+  public static final int SNMPv3_USM_SECURITY_NAME_TOO_LONG      = 1416;
 
   public static final int SNMPv3_TSM_OK                          = 0;
   public static final int SNMPv3_TSM_UNKNOWN_PREFIXES            = 1601;
@@ -267,6 +270,70 @@ public final class SnmpConstants {
   public static final OID snmpSshtmSessionInvalidCaches =
     new OID(new int[] { 1,3,6,1,2,1,189,1,1,8,0 });
 
+  // SNMP4J-STATISTICS-MIB
+  /**
+   * The total number of requests that timed out (Counter32).
+   */
+  public static final OID snmp4jStatsRequestTimeouts =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,1,0 });
+  /**
+   * The total number of retries sent on behalf of
+   * requests. The first message, thus the request
+   * itself is not counted (Counter32).
+   */
+  public static final OID snmp4jStatsRequestRetries =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,2,0 });
+  /**
+   * The total number of milliseconds this SNMP
+   * entity spend waiting for responses on its own
+   * requests (Counter64).
+   */
+  public static final OID snmp4jStatsRequestWaitTime =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,3,0 });
+
+  /**
+   * The total number of requests that timed out for this target (Counter32).
+   */
+  public static final OID snmp4jStatsReqTableTimeouts =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,10,3,1,4 });
+  /**
+   * The total number of retries sent on behalf of
+   * requests to this target. The first message, thus the request
+   * itself is not counted.
+   */
+  public static final OID snmp4jStatsReqTableRetries =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,10,3,1,5 });
+  /**
+   * The total number of milliseconds this SNMP
+   * entity spend waiting for responses on its own
+   * requests to this target.
+   */
+  public static final OID snmp4jStatsReqTableWaitTime =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,10,3,1,6 });
+
+
+  /**
+   * The number of response processings that ended
+   * due to an internal timeout before that maximum
+   * number of response variables (GETBULK) has been
+   * reached. For other request types than GETBULK,
+   * an internal timeout would return a SNMP error
+   * (e.g. genErr) to the command sender.
+   */
+  public static final OID snmp4jStatsResponseTimeouts =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,2,1,0 });
+  /**
+   * The total number of retries ignored by the command
+   * responder while processing requests.
+   */
+  public static final OID snmp4jStatsResponseIgnoredRetries =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,2,2,0 });
+  /**
+   * The total number of milliseconds the command
+   * responder took to process a request.
+   */
+  public static final OID snmp4jStatsResponseProcessTime =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,2,3,0 });
 
   // SNMP framework
   public static final OID snmpSetSerialNo =
@@ -339,7 +406,9 @@ public final class SnmpConstants {
       { ""+SNMPv3_USM_NOT_IN_TIME_WINDOW, "Not in time window"},
       { ""+SNMPv3_USM_UNSUPPORTED_AUTHPROTOCOL, "Unsupported authentication protocol"},
       { ""+SNMPv3_USM_UNSUPPORTED_PRIVPROTOCOL, "Unsupported privacy protocol"},
-      { ""+SNMPv3_USM_ADDRESS_ERROR, "Address error"}
+      { ""+SNMPv3_USM_ADDRESS_ERROR, "Address error"},
+      { ""+SNMPv3_USM_ENGINE_ID_TOO_LONG, "Engine ID too long"},
+      { ""+SNMPv3_USM_SECURITY_NAME_TOO_LONG, "Security name too long"}
   };
 
   public static String mpErrorMessage(int status) {

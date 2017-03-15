@@ -36,6 +36,9 @@ public final class SNMP4JSettings {
   /** The enterprise ID of AGENT++ which is the root OID also for SNMP4J. */
   public static final int AGENTPP_ENTERPRISE_ID = 4976;
 
+  /** By default allow worth of ~2MB memory for engine ID cache. */
+  private static int maxEngineIdCacheSize = 50000;
+
   /**
    * Specifies the how the security level of retry requests after a REPORT PDU is
    * set.
@@ -56,6 +59,21 @@ public final class SNMP4JSettings {
      */
     neverNoAuthNoPriv
   };
+
+  public enum Snmp4jStatistics {
+    /**
+     * Do not collect any SNMP4J specific statistics.
+     */
+    none,
+    /**
+     * Collect only basic statistics as defined by the snmp4jStatsBasicGroup.
+     */
+    basic,
+    /**
+     * Collect extended statistics that include per target stats.
+     */
+    extended
+  }
 
   /**
    * Specifies whether SNMP4J can be extended by own implementation of
@@ -163,6 +181,12 @@ public final class SNMP4JSettings {
    * @since 2.2.4
    */
   private static int enterpriseID = AGENTPP_ENTERPRISE_ID;
+
+  /**
+   * The snmp4jStatistics value defines the level of statistic values that are collected
+   * in extension to those collected for the SNMP standard.
+   */
+  private static Snmp4jStatistics snmp4jStatistics = Snmp4jStatistics.basic;
 
   /**
    * Enables (or disables) the extensibility feature of SNMP4J. When enabled,
@@ -305,8 +329,7 @@ public final class SNMP4JSettings {
    *    the new <code>VariableTextFormat</code> (must not be <code>null</code>).
    * @since 1.10
    */
-  public static void setVariableTextFormat(VariableTextFormat
-                                           newVariableTextFormat) {
+  public static void setVariableTextFormat(VariableTextFormat newVariableTextFormat) {
     if (newVariableTextFormat == null) {
       throw new NullPointerException();
     }
@@ -395,5 +418,46 @@ public final class SNMP4JSettings {
    */
   public static void setEnterpriseID(int enterpriseID) {
     SNMP4JSettings.enterpriseID = enterpriseID;
+  }
+
+  /**
+   * Gets the maximum number of engine IDs to be hold in the cache of the {@link org.snmp4j.mp.MPv3}.
+   * A upper limit is necessary to avoid DoS attacks with unconfirmed SNMPv3 PDUs.
+   * @return
+   *    the maximum number, by default 50.000 (~2MB of cached data).
+   * @since 2.3.4
+   */
+  public static int getMaxEngineIdCacheSize() {
+    return maxEngineIdCacheSize;
+  }
+
+  /**
+   * Sets the maximum number of engine IDs that can be cached by the{@link org.snmp4j.mp.MPv3}.
+   * @param maxEngineIdCacheSize
+   *    the maximum number of engine IDs in the cache, by default 50.000 (~2MB of cached data).
+   * @since 2.3.4
+   */
+  public static void setMaxEngineIdCacheSize(int maxEngineIdCacheSize) {
+    SNMP4JSettings.maxEngineIdCacheSize = maxEngineIdCacheSize;
+  }
+
+  /**
+   * Get the SNMP4J statistics level.
+   * @return
+   *    the Snmp4jStatistics enum value.
+   * @since 2.4.2
+   */
+  public static Snmp4jStatistics getSnmp4jStatistics() {
+    return snmp4jStatistics;
+  }
+
+  /**
+   * Sets the SNMP4J statistics level.
+   * @param snmp4jStatistics
+   *    the level of statistics to be collected by SNMP4J and provided through {@link org.snmp4j.event.CounterEvent}s.
+   * @since 2.4.2
+   */
+  public static void setSnmp4jStatistics(Snmp4jStatistics snmp4jStatistics) {
+    SNMP4JSettings.snmp4jStatistics = snmp4jStatistics;
   }
 }

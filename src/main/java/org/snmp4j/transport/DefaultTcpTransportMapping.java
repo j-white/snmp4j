@@ -49,6 +49,12 @@ import org.snmp4j.util.CommonTimer;
  */
 public class DefaultTcpTransportMapping extends TcpTransportMapping {
 
+  /**
+   * The maximum number of loops trying to read data from an incoming port but no data has been received.
+   * A value of 0 or less disables the check.
+   */
+  public static final int DEFAULT_MAX_BUSY_LOOPS = 100;
+
   private static final LogAdapter logger =
       LogFactory.getLogger(DefaultTcpTransportMapping.class);
 
@@ -64,6 +70,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
   private static final int MIN_SNMP_HEADER_LENGTH = 6;
   private MessageLengthDecoder messageLengthDecoder =
       new SnmpMesssageLengthDecoder();
+  private int maxBusyLoops = DEFAULT_MAX_BUSY_LOOPS;
 
   /**
    * Creates a default TCP transport mapping with the server for incoming
@@ -383,6 +390,14 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
     return (server != null);
   }
 
+  protected int getMaxBusyLoops() {
+    return maxBusyLoops;
+  }
+
+  protected void setMaxBusyLoops(int maxBusyLoops) {
+    this.maxBusyLoops = maxBusyLoops;
+  }
+
   /**
    * Sets optional server socket options. The default implementation does
    * nothing.
@@ -399,6 +414,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
     private LinkedList<byte[]> message = new LinkedList<byte[]>();
     private ByteBuffer readBuffer = null;
     private volatile int registrations = 0;
+    private volatile int busyLoops = 0;
 
     public SocketEntry(TcpAddress address, Socket socket) {
       this.peerAddress = address;
@@ -476,9 +492,19 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
       return readBuffer;
     }
 
+    public int nextBusyLoop() {
+      return ++busyLoops;
+    }
+
+    public void resetBusyLoops() {
+      busyLoops = 0;
+    }
+
     public String toString() {
       return "SocketEntry[peerAddress="+peerAddress+
-          ",socket="+socket+",lastUse="+new Date(lastUse/SnmpConstants.MILLISECOND_TO_NANOSECOND)+"]";
+          ",socket="+socket+",lastUse="+new Date(lastUse/SnmpConstants.MILLISECOND_TO_NANOSECOND)+
+          ",readBufferPosition="+((readBuffer== null)?-1:readBuffer.position())+
+          "]";
     }
 
     /*
@@ -505,7 +531,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
     public MessageLength getMessageLength(ByteBuffer buf) throws IOException {
       MutableByte type = new MutableByte();
       BERInputStream is = new BERInputStream(buf);
-      int ml = BER.decodeHeader(is, type);
+      int ml = BER.decodeHeader(is, type, false);
       int hl = (int)is.getPosition();
       MessageLength messageLength = new MessageLength(hl, ml);
       return messageLength;
@@ -629,7 +655,8 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
                   new TransportStateEvent(DefaultTcpTransportMapping.this,
                                           entry.getPeerAddress(),
                                           TransportStateEvent.STATE_CLOSED,
-                                          null);
+                                          null,
+                                          entry.message);
               fireConnectionStateChanged(e);
             }
             catch (IOException ex) {
@@ -647,7 +674,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
                   new TransportStateEvent(DefaultTcpTransportMapping.this,
                                           entry.getPeerAddress(),
                                           TransportStateEvent.STATE_CLOSED,
-                                          iox);
+                                          iox, entry.message);
               fireConnectionStateChanged(e);
             }
             catch (IOException ex) {
@@ -808,7 +835,19 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
                   if (readChannel != null) {
                     logger.debug("Key is reading");
                     try {
-                      readMessage(sk, readChannel, incomingAddress);
+                      if (!readMessage(sk, readChannel, incomingAddress)) {
+                        SocketEntry entry = (SocketEntry) sk.attachment();
+                        if ((entry != null) && (getMaxBusyLoops() > 0)) {
+                          int busyLoops = entry.nextBusyLoop();
+                          if (busyLoops > getMaxBusyLoops()) {
+                            if (logger.isDebugEnabled()) {
+                              logger.debug("After " + busyLoops + " read key has been removed: " + entry);
+                            }
+                            entry.removeRegistration(selector, SelectionKey.OP_READ);
+                            entry.resetBusyLoops();
+                          }
+                        }
+                      }
                     }
                     catch (IOException iox) {
                       // IO exception -> channel closed remotely
@@ -945,8 +984,8 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
       }
     }
 
-    private void readMessage(SelectionKey sk, SocketChannel readChannel,
-                             TcpAddress incomingAddress) throws IOException {
+    private boolean readMessage(SelectionKey sk, SocketChannel readChannel,
+                                TcpAddress incomingAddress) throws IOException {
       SocketEntry entry = (SocketEntry) sk.attachment();
       if (entry == null) {
         // slow but in some cases needed:
@@ -957,15 +996,25 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
         entry.used();
         ByteBuffer readBuffer = entry.getReadBuffer();
         if (readBuffer != null) {
-          readChannel.read(readBuffer);
-          if (readBuffer.hasRemaining()) {
+          int bytesRead = readChannel.read(readBuffer);
+          if (logger.isDebugEnabled()) {
+            logger.debug("Read " + bytesRead + " bytes from " + incomingAddress);
+          }
+          if ((bytesRead >= 0) &&
+              (readBuffer.hasRemaining() || (readBuffer.position() < messageLengthDecoder.getMinHeaderLength()))) {
             entry.addRegistration(selector, SelectionKey.OP_READ);
           }
-          else {
-            entry.setReadBuffer(null); // <== set read buffer of entry to null
-            dispatchMessage(incomingAddress, readBuffer, readBuffer.capacity(), entry);
+          else if (bytesRead < 0) {
+            socketClosedRemotely(sk, readChannel, incomingAddress);
           }
-          return;
+          else {
+            readSnmpMessagePayload(readChannel, incomingAddress, entry, readBuffer);
+          }
+          if (bytesRead != 0) {
+            entry.resetBusyLoops();
+            return true;
+          }
+          return false;
         }
       }
       ByteBuffer byteBuffer = ByteBuffer.wrap(buf);
@@ -976,9 +1025,9 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
           logger.debug("Read channel not open, no bytes read from " +
                        incomingAddress);
         }
-        return;
+        return false;
       }
-      long bytesRead = 0;
+      long bytesRead;
       try {
         bytesRead = readChannel.read(byteBuffer);
         if (logger.isDebugEnabled()) {
@@ -992,64 +1041,95 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
           logger.debug("Read channel not open, no bytes read from " +
                        incomingAddress);
         }
-        return;
+        return false;
       }
-      if (bytesRead == messageLengthDecoder.getMinHeaderLength()) {
-        MessageLength messageLength =
-            messageLengthDecoder.getMessageLength(ByteBuffer.wrap(buf));
-        if (logger.isDebugEnabled()) {
-          logger.debug("Message length is "+messageLength);
-        }
-        if ((messageLength.getMessageLength() > getMaxInboundMessageSize()) ||
-            (messageLength.getMessageLength() <= 0)) {
-          logger.error("Received message length "+messageLength+
-                       " is greater than inboundBufferSize "+
-                       getMaxInboundMessageSize());
-          if (entry != null) {
-            Socket s = entry.getSocket();
-            if (s != null) {
-              s.close();
-              logger.info("Socket to " + entry.getPeerAddress() +
-                          " closed due to an error");
-            }
-          }
-        }
-        else {
-          byteBuffer.limit(messageLength.getMessageLength());
-          bytesRead += readChannel.read(byteBuffer);
-          if (bytesRead == messageLength.getMessageLength()) {
-            dispatchMessage(incomingAddress, byteBuffer, bytesRead, entry);
-          }
-          else {
-            byte[] message = new byte[byteBuffer.limit()];
-            int buflen = byteBuffer.limit() - byteBuffer.remaining();
-            byteBuffer.flip();
-            byteBuffer.get(message, 0, buflen);
-            ByteBuffer newBuffer = ByteBuffer.wrap(message);
-            newBuffer.position(buflen);
-            if (entry != null) {
-              entry.setReadBuffer(newBuffer);
-            }
-          }
-          if (entry != null) {
-            entry.addRegistration(selector, SelectionKey.OP_READ);
-          }
-        }
+      if (byteBuffer.position() >= messageLengthDecoder.getMinHeaderLength()) {
+        readSnmpMessagePayload(readChannel, incomingAddress, entry, byteBuffer);
       }
       else if (bytesRead < 0) {
-        logger.debug("Socket closed remotely");
-        sk.cancel();
-        readChannel.close();
-        TransportStateEvent e =
-            new TransportStateEvent(DefaultTcpTransportMapping.this,
-                                    incomingAddress,
-                                    TransportStateEvent.
-                                    STATE_DISCONNECTED_REMOTELY,
-                                    null);
-        fireConnectionStateChanged(e);
+        socketClosedRemotely(sk, readChannel, incomingAddress);
       }
-      else if (entry != null) {
+      else if ((entry != null) && (bytesRead > 0)) {
+        addBufferToReadBuffer(entry, byteBuffer);
         entry.addRegistration(selector, SelectionKey.OP_READ);
+      }
+      else {
+        if (logger.isDebugEnabled()) {
+          logger.debug("No socket entry found for incoming address "+incomingAddress+
+                       " for incomplete message with length "+bytesRead);
+        }
+      }
+      if ((entry != null) && (bytesRead != 0)) {
+        entry.resetBusyLoops();
+        return true;
+      }
+      return false;
+    }
+
+    private void readSnmpMessagePayload(SocketChannel readChannel, TcpAddress incomingAddress,
+                                        SocketEntry entry, ByteBuffer byteBuffer) throws IOException {
+      MessageLength messageLength =
+          messageLengthDecoder.getMessageLength(ByteBuffer.wrap(byteBuffer.array()));
+      if (logger.isDebugEnabled()) {
+        logger.debug("Message length is "+messageLength);
+      }
+      if ((messageLength.getMessageLength() > getMaxInboundMessageSize()) ||
+          (messageLength.getMessageLength() <= 0)) {
+        logger.error("Received message length "+messageLength+
+                     " is greater than inboundBufferSize "+
+                     getMaxInboundMessageSize());
+        if (entry != null) {
+          Socket s = entry.getSocket();
+          if (s != null) {
+            s.close();
+            logger.info("Socket to " + entry.getPeerAddress() +
+                        " closed due to an error");
+          }
+        }
+      }
+      else {
+        int messageSize = messageLength.getMessageLength();
+        if (byteBuffer.position() < messageSize) {
+          if (byteBuffer.capacity() < messageSize) {
+            if (logger.isDebugEnabled()) {
+              logger.debug("Extending message buffer size according to message length to "+messageSize);
+            }
+            // Enhance capacity to expected message size and replace existing (too short) read buffer
+            byte[] newBuffer = new byte[messageSize];
+            int len = byteBuffer.position();
+            byteBuffer.flip();
+            byteBuffer.get(newBuffer, 0, len);
+            byteBuffer = ByteBuffer.wrap(newBuffer);
+            byteBuffer.position(len);
+            if (entry != null) {
+              byteBuffer.limit(messageSize);
+              entry.setReadBuffer(byteBuffer);
+            }
+          }
+          else {
+            byteBuffer.limit(messageSize);
+          }
+          readChannel.read(byteBuffer);
+        }
+        long bytesRead = byteBuffer.position();
+        if (bytesRead >= messageSize) {
+          if (logger.isDebugEnabled()) {
+            logger.debug("Message completed with "+bytesRead+" bytes and "+byteBuffer.limit()+" buffer limit");
+          }
+          if (entry != null) {
+            entry.setReadBuffer(null);
+          }
+          dispatchMessage(incomingAddress, byteBuffer, bytesRead, entry);
+        }
+        else if ((entry != null) && (byteBuffer != entry.getReadBuffer())){
+          if (logger.isDebugEnabled()) {
+            logger.debug("Adding buffer content to read buffer of entry "+entry+", buffer "+byteBuffer);
+          }
+          addBufferToReadBuffer(entry, byteBuffer);
+        }
+        if (entry != null) {
+          entry.addRegistration(selector, SelectionKey.OP_READ);
+        }
       }
     }
 
@@ -1087,7 +1167,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
         ByteBuffer buffer = ByteBuffer.wrap(message);
         sc.write(buffer);
         if (logger.isDebugEnabled()) {
-          logger.debug("Send message with length " +
+          logger.debug("Sent message with length " +
                        message.length + " to " +
                        entry.getPeerAddress() + ": " +
                        new OctetString(message).toHexString());
@@ -1134,6 +1214,37 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
       }
       selector.wakeup();
     }
+  }
+
+  private void addBufferToReadBuffer(SocketEntry entry, ByteBuffer byteBuffer) {
+    if (logger.isDebugEnabled()) {
+      logger.debug("Adding data "+byteBuffer+" to read buffer "+entry.getReadBuffer());
+    }
+    int buflen = byteBuffer.position();
+    if (entry.getReadBuffer() != null) {
+      entry.getReadBuffer().put(byteBuffer.array(), 0, buflen);
+    }
+    else {
+      byte[] message = new byte[byteBuffer.limit()];
+      byteBuffer.flip();
+      byteBuffer.get(message, 0, buflen);
+      ByteBuffer newBuffer = ByteBuffer.wrap(message);
+      newBuffer.position(buflen);
+      entry.setReadBuffer(newBuffer);
+    }
+  }
+
+  private void socketClosedRemotely(SelectionKey sk, SocketChannel readChannel, TcpAddress incomingAddress) throws IOException {
+    logger.debug("Socket closed remotely");
+    sk.cancel();
+    readChannel.close();
+    TransportStateEvent e =
+        new TransportStateEvent(DefaultTcpTransportMapping.this,
+                                incomingAddress,
+                                TransportStateEvent.
+                                STATE_DISCONNECTED_REMOTELY,
+                                null);
+    fireConnectionStateChanged(e);
   }
 
 }

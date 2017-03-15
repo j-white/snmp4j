@@ -299,7 +299,20 @@ public class MessageDispatcherImpl implements MessageDispatcher {
                                     pdu.getPdu(),
                                     maxSizeRespPDU.getValue(),
                                     mutableStateReference.getStateReference());
+
+      CounterEvent responseTimeEvent = null;
+      if (SNMP4JSettings.getSnmp4jStatistics() != SNMP4JSettings.Snmp4jStatistics.none) {
+        responseTimeEvent = new CounterEvent(this, SnmpConstants.snmp4jStatsResponseProcessTime,
+            incomingAddress, System.nanoTime());
+      }
+
       fireProcessPdu(e);
+
+      if (responseTimeEvent != null) {
+        long increment = (System.nanoTime()-responseTimeEvent.getIncrement())/SnmpConstants.MILLISECOND_TO_NANOSECOND;
+        responseTimeEvent.setIncrement(increment);
+        fireIncrementCounter(responseTimeEvent);
+      }
     }
     else {
       switch (status) {
@@ -331,8 +344,8 @@ public class MessageDispatcherImpl implements MessageDispatcher {
                              ByteBuffer wholeMessage,
                              TransportStateReference tmStateReference) {
     processMessage(sourceTransport, incomingAddress,
-                   new BERInputStream(wholeMessage),
-                   tmStateReference);
+        new BERInputStream(wholeMessage),
+        tmStateReference);
   }
 
   public void processMessage(TransportMapping sourceTransport,
@@ -451,7 +464,7 @@ public class MessageDispatcherImpl implements MessageDispatcher {
       // ID because it may be a resent request.
       PduHandle pduHandle;
       Integer32 reqID = pdu.getRequestID();
-      if ((reqID == null) || (reqID.getValue() == 0) &&
+      if (((reqID == null) || (reqID.getValue() == 0)) &&
           (pdu.getType() != PDU.RESPONSE)) {
         pduHandle = createPduHandle();
       }
@@ -479,7 +492,9 @@ public class MessageDispatcherImpl implements MessageDispatcher {
                                       SecurityLevel.undefined,
                                       false, null, certifiedIdentity);
 
-      configureAuthoritativeEngineID(target, mp);
+      if (pdu.isConfirmedPdu()) {
+        configureAuthoritativeEngineID(target, mp);
+      }
       BEROutputStream outgoingMessage = new BEROutputStream();
       int status = mp.prepareOutgoingMessage(transportAddress,
                                              transport.getMaxInboundMessageSize(),

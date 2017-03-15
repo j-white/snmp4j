@@ -82,7 +82,9 @@ class Salt {
   }
 
   /**
-   * Get the next value of the salt.
+   * Get the next value of the salt by adding one to its current value.
+   * This might result in a predictable salt value if it is not combined with
+   * other somehow unpredictable (random) data.
    *
    * @return
    *    previous value increased by one.

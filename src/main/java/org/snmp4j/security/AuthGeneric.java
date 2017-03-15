@@ -34,16 +34,67 @@ import org.snmp4j.smi.OctetString;
 public abstract class AuthGeneric implements AuthenticationProtocol {
 
   private static final LogAdapter logger = LogFactory.getLogger(AuthGeneric.class);
-  private int digestLength;
-  private String protoName;
 
+  private static int HMAC_BLOCK_SIZE = 64;
+  private static int DEFAULT_AUTHENTICATION_CODE_LENGTH = 12;
+
+  private final int hmacBlockSize;
+  private int authenticationCodeLength;
+  private final int digestLength;
+  private final String protoName;
+
+  /**
+   * Creates an authentication protocol with the specified name (ID) and digest length and using the
+   * {@link #DEFAULT_AUTHENTICATION_CODE_LENGTH} default code length.
+   * @param protoName
+   *   the name (ID) of the authentication protocol. Only names that are supported by the used
+   *   security provider can be used.
+   * @param digestLength
+   *   the digest length.
+   */
   public AuthGeneric(String protoName, int digestLength) {
+    this.hmacBlockSize = HMAC_BLOCK_SIZE;
+    this.authenticationCodeLength = DEFAULT_AUTHENTICATION_CODE_LENGTH;
     this.protoName = protoName;
     this.digestLength = digestLength;
   }
 
+  /**
+   * Creates an authentication protocol with the specified name (ID) and digest length and using the
+   * {@link #DEFAULT_AUTHENTICATION_CODE_LENGTH} default code length.
+   * @param protoName
+   *   the name (ID) of the authentication protocol. Only names that are supported by the used
+   *   security provider can be used.
+   * @param digestLength
+   *   the digest length.
+   * @param authenticationCodeLength
+   *   the length of the hash output (i.e., the authentication code length).
+   * @since 2.4.0
+   */
+  public AuthGeneric(String protoName, int digestLength, int authenticationCodeLength) {
+    this(protoName, digestLength);
+    this.authenticationCodeLength = authenticationCodeLength;
+  }
+
+
+  /**
+   * Gets the length of the message digest used by this authentication protocol.
+   * @return
+   *    the number of octets in the digest.
+   */
   public int getDigestLength() {
     return digestLength;
+  }
+
+  /**
+   * The length of the authentication code (the hashing output length) in octets.
+   * @return
+   *    the length of the authentication code.
+   * @since 2.4.0
+   */
+  @Override
+  public int getAuthenticationCodeLength() {
+    return authenticationCodeLength;
   }
 
   /**
@@ -71,15 +122,20 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
                               ByteArrayWindow digest) {
     MessageDigest md = getDigestObject();
 
-    byte[] newDigest;
-    byte[] k_ipad = new byte[64]; /* inner padding - key XORd with ipad */
-    byte[] k_opad = new byte[64]; /* outer padding - key XORd with opad */
+    byte[] authKey = authenticationKey;
 
-    // clear the bytes for the digest (12 bytes only!)
-    for (int i = 0; i < MESSAGE_AUTHENTICATION_CODE_LENGTH; ++i) {
+    byte[] newDigest;
+    byte[] k_ipad = new byte[hmacBlockSize]; /* inner padding - key XORd with ipad */
+    byte[] k_opad = new byte[hmacBlockSize]; /* outer padding - key XORd with opad */
+
+    // clear the bytes for the digest
+    for (int i = 0; i < authenticationCodeLength; ++i) {
       digest.set(i, (byte)0);
     }
 
+    if (authKey.length > hmacBlockSize) {
+      authKey = md.digest(authenticationKey);
+    }
     /*
      * the HMAC_MD transform looks like:
      *
@@ -91,11 +147,11 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
      * and text is the data being protected
      */
     /* start out by storing key, ipad and opad in pads */
-    for (int i = 0; i < authenticationKey.length; ++i) {
-      k_ipad[i] = (byte) (authenticationKey[i] ^ 0x36);
-      k_opad[i] = (byte) (authenticationKey[i] ^ 0x5c);
+    for (int i = 0; i < authKey.length; ++i) {
+      k_ipad[i] = (byte) (authKey[i] ^ 0x36);
+      k_opad[i] = (byte) (authKey[i] ^ 0x5c);
     }
-    for (int i = authenticationKey.length; i < 64; ++i) {
+    for (int i = authKey.length; i < hmacBlockSize; ++i) {
       k_ipad[i] = 0x36;
       k_opad[i] = 0x5c;
     }
@@ -105,13 +161,13 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
     md.update(message, messageOffset, messageLength); /* then text of msg  */
     newDigest = md.digest(); /* finish up 1st pass        */
     /* perform outer MD */
-    md.reset(); /* init md5 for 2nd pass     */
+    md.reset(); /* init hash function for 2nd pass     */
     md.update(k_opad); /* start with outer pad      */
     md.update(newDigest); /* then results of 1st hash  */
     newDigest = md.digest(); /* finish up 2nd pass        */
 
-    // copy the digest into the message (12 bytes only!)
-    for (int i = 0; i < 12; ++i) {
+    // copy the digest into the message (authenticationCodeLength bytes only!)
+    for (int i = 0; i < authenticationCodeLength; ++i) {
       digest.set(i, newDigest[i]);
     }
     return true;
@@ -124,18 +180,18 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
                              ByteArrayWindow digest) {
     // copy digest from message
     ByteArrayWindow origDigest =
-        new ByteArrayWindow(new byte[MESSAGE_AUTHENTICATION_CODE_LENGTH], 0,
-                            MESSAGE_AUTHENTICATION_CODE_LENGTH);
+        new ByteArrayWindow(new byte[authenticationCodeLength], 0,
+            authenticationCodeLength);
     System.arraycopy(digest.getValue(), digest.getOffset(),
                      origDigest.getValue(), 0,
-                     MESSAGE_AUTHENTICATION_CODE_LENGTH);
+        authenticationCodeLength);
 
     // use the authenticate() method to recalculate the digest
     if (!authenticate(authenticationKey, message, messageOffset,
                       messageLength, digest)) {
       return false;
     }
-    return digest.equals(origDigest, 12);
+    return digest.equals(origDigest, authenticationCodeLength);
   }
 
   public byte[] changeDelta(byte[] oldKey,
@@ -197,20 +253,20 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
     MessageDigest md = getDigestObject();
 
     byte[] digest;
-    byte[] buf = new byte[64];
+    byte[] buf = new byte[hmacBlockSize];
     int password_index = 0;
     int count = 0;
     byte[] password = passwordString.getValue();
 
     /* Use while loop until we've done 1 Megabyte */
     while (count < 1048576) {
-      for (int i = 0; i < 64; ++i) {
+      for (int i = 0; i < hmacBlockSize; ++i) {
         /* Take the next octet of the password, wrapping */
         /* to the beginning of the password as necessary.*/
         buf[i] = password[password_index++ % password.length];
       }
       md.update(buf);
-      count += 64;
+      count += hmacBlockSize;
     }
     digest = md.digest();
     if (logger.isDebugEnabled()) {

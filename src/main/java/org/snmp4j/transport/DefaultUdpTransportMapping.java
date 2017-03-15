@@ -144,6 +144,15 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
       closingSocket.close();
     }
     socket = null;
+    if ((l != null) && (socketTimeout <= 0)) {
+      try {
+        l.join();
+      }
+      catch (InterruptedException ex) {
+        interrupted = true;
+        logger.warn(ex);
+      }
+    }
     if (interrupted) {
       Thread.currentThread().interrupt();
     }
@@ -438,7 +447,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
             stop = true;
             throw new RuntimeException(soex);
           }
-          else {
+          else if (!stop) {
             try {
               DatagramSocket newSocket = renewSocketAfterException(soex, socketCopy);
               if (newSocket == null) {

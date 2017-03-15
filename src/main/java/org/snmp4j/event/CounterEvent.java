@@ -37,7 +37,7 @@ import org.snmp4j.smi.Counter64;
  * the {@link #setCurrentValue(Variable currentValue)} method.
  *
  * @author Frank Fock
- * @version 1.0
+ * @version 2.4.2
  */
 public class CounterEvent extends EventObject {
 
@@ -45,6 +45,8 @@ public class CounterEvent extends EventObject {
 
   private OID oid;
   private Variable currentValue = new Counter32();
+  private long increment = 1;
+  private Object index;
 
   /**
    * Creates a <code>CounterEvent</code> for the specified counter.
@@ -57,6 +59,41 @@ public class CounterEvent extends EventObject {
   public CounterEvent(Object source, OID oid) {
     super(source);
     this.oid = oid;
+  }
+
+  /**
+   * Creates a <code>CounterEvent</code> for the specified counter.
+   * @param source
+   *    the source of the event.
+   * @param oid
+   *    the OID of the counter instance (typically, the counter is a scalar and
+   *    thus the OID has to end on zero).
+   * @param increment
+   *    a positive natural number (default is 1) that defines the increment
+   *    that needs to be added to the counter on behalf of this event.
+   */
+  public CounterEvent(Object source, OID oid, long increment) {
+    this(source, oid);
+    this.increment = increment;
+  }
+
+  /**
+   * Creates a <code>CounterEvent</code> for the specified counter.
+   * @param source
+   *    the source of the event.
+   * @param oid
+   *    the OID of the counter instance (typically, the counter is a scalar and
+   *    thus the OID has to end on zero).
+   * @param index
+   *    an counter defined object that identifies the counter row within a table of counters.
+   * @param increment
+   *    a positive natural number (default is 1) that defines the increment
+   *    that needs to be added to the counter on behalf of this event.
+   * @since 2.4.2
+   */
+  public CounterEvent(Object source, OID oid, Object index, long increment) {
+    this(source, oid, increment);
+    this.index = index;
   }
 
   /**
@@ -87,5 +124,46 @@ public class CounterEvent extends EventObject {
    */
   public void setCurrentValue(Variable currentValue) {
     this.currentValue = currentValue;
+  }
+
+  /**
+   * The increment to be added to the counter value on behalf of this event.
+   * The default is 1.
+   * @return
+   *    the counter increment of this event.
+   * @since 2.4.2
+   */
+  public long getIncrement() {
+    return increment;
+  }
+
+  /**
+   * Sets the increment of the event. This has to be done before the event is fired to have an effect!
+   * @param increment
+   *    the counter increment (must be a positive value for Counter32 counters!). For Counter64 counters,
+   *    the value might be negative but is then interpreted as an unsinged long value.
+   */
+  public void setIncrement(long increment) {
+    this.increment = increment;
+  }
+
+  /**
+   * The index identifier of the counter value (if the counter belongs to a table of counters).
+   * @return
+   *    the row index identifier for this counter event or <code>null</code> if the counter is a scalar value.
+   * @since 2.4.2
+   */
+  public Object getIndex() {
+    return index;
+  }
+
+  @Override
+  public String toString() {
+    return "CounterEvent{" +
+        "oid=" + oid +
+        ", currentValue=" + currentValue +
+        ", increment=" + increment +
+        ", index=" + index +
+        "} " + super.toString();
   }
 }

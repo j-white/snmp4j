@@ -152,7 +152,7 @@ import org.snmp4j.ScopedPDU;
 ScopedPDU pdu = new ScopedPDU();
 pdu.setType(PDU.INFORM);
 // sysUpTime
-long sysUpTime = (System.nanoTime() - startTime) / 10000;
+long sysUpTime = (System.nanoTime() - startTime) / 10000000;  // 10^-7
 pdu.add(new VariableBinding(SnmpConstants.sysUpTime, new TimeTicks(sysUpTime)));
 pdu.add(new VariableBinding(SnmpConstants.snmpTrapOID, SnmpConstants.linkDown));
 // payload

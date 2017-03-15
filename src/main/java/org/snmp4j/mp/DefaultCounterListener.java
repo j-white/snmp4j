@@ -65,11 +65,11 @@ public class DefaultCounterListener implements CounterListener {
       if (countRegisteredOnly) {
         return;
       }
-      counter = new Counter32(1);
+      counter = new Counter32(event.getIncrement());
       counters.put(id, counter);
     }
     else {
-      counter.increment();
+      counter.increment(event.getIncrement());
     }
     // write back current value
     event.setCurrentValue((Variable) counter.clone());

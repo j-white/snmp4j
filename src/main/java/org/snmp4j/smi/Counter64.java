@@ -145,6 +145,21 @@ public class Counter64 extends AbstractVariable
     value++;
   }
 
+  /**
+   * Increment the value by more than one in one step.
+   * @param increment
+   *   an increment value greater than zero.
+   * @return
+   *   the current value of the counter.
+   * @since 2.4.2
+   */
+  public long increment(long increment) {
+    if (increment < 0) {
+      throw new IllegalArgumentException("Counter64 allows only positive increments: "+increment);
+    }
+    return this.value += increment;
+  }
+
   public final int toInt() {
     return (int)getValue();
   }

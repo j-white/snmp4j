@@ -256,7 +256,7 @@ public class SnmpRequest implements CommandResponder, PDUFactory {
   }
 
   public synchronized void listen() throws IOException {
-    AbstractTransportMapping transport;
+    AbstractTransportMapping<? extends Address> transport;
     if (address instanceof TcpAddress) {
       transport = new DefaultTcpTransportMapping((TcpAddress)address);
     }
@@ -312,7 +312,7 @@ public class SnmpRequest implements CommandResponder, PDUFactory {
   }
 
   private Snmp createSnmpSession() throws IOException {
-    AbstractTransportMapping transport;
+    AbstractTransportMapping<? extends Address> transport;
     if (address instanceof TlsAddress) {
       transport = new TLSTM();
     }
@@ -610,6 +610,12 @@ public class SnmpRequest implements CommandResponder, PDUFactory {
         }
         else if (s.equals("SHA")) {
           authProtocol = AuthSHA.ID;
+        }
+        else if (s.equals("SHA256")) {
+          authProtocol = AuthHMAC192SHA256.ID;
+        }
+        else if (s.equals("SHA512")) {
+          authProtocol = AuthHMAC384SHA512.ID;
         }
         else {
           throw new IllegalArgumentException("Authentication protocol unsupported: "+s);

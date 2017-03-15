@@ -39,6 +39,7 @@ import org.snmp4j.asn1.BERInputStream;
 public class Counter32 extends UnsignedInteger32 {
 
   private static final long serialVersionUID = 6140742767439142144L;
+  public static final long MAX_COUNTER32_VALUE = 4294967295L;
 
   public Counter32() {
   }
@@ -48,10 +49,7 @@ public class Counter32 extends UnsignedInteger32 {
   }
 
   public boolean equals(Object o) {
-    if (o instanceof Counter32) {
-      return (((Counter32)o).getValue() == getValue());
-    }
-    return false;
+    return (o instanceof Counter32) && (((Counter32) o).getValue() == getValue());
   }
 
   public int getSyntax() {
@@ -81,12 +79,35 @@ public class Counter32 extends UnsignedInteger32 {
    * 2^32-1 (4294967295) then value will be set to zero.
    */
   public void increment() {
-    if (value < 4294967295l) {
+    if (value < MAX_COUNTER32_VALUE) {
       value++;
     }
     else {
       value = 0;
     }
+  }
+
+  /**
+   * Increment the value by more than one in one step.
+   * @param increment
+   *   an increment value greater than zero.
+   * @return
+   *   the current value of the counter.
+   * @since 2.4.2
+   */
+  public long increment(long increment) {
+    if (increment > 0) {
+      if (value + increment < MAX_COUNTER32_VALUE) {
+        value += increment;
+      }
+      else {
+        value = increment - (MAX_COUNTER32_VALUE - value);
+      }
+    }
+    else if (increment < 0) {
+      throw new IllegalArgumentException("Negative increments not allowed for counters: "+increment);
+    }
+    return value;
   }
 
   public OID toSubIndex(boolean impliedLength) {

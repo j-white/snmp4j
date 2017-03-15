@@ -272,5 +272,34 @@ public abstract class AbstractTarget implements Target {
   public final void setSecurityName(OctetString securityName) {
     this.securityName = securityName;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    AbstractTarget that = (AbstractTarget) o;
+
+    if (version != that.version) return false;
+    if (retries != that.retries) return false;
+    if (timeout != that.timeout) return false;
+    if (maxSizeRequestPDU != that.maxSizeRequestPDU) return false;
+    if (securityLevel != that.securityLevel) return false;
+    if (securityModel != that.securityModel) return false;
+    if (!address.equals(that.address)) return false;
+    if (preferredTransports != null ? !preferredTransports.equals(that.preferredTransports) : that.preferredTransports != null)
+      return false;
+    if (!securityName.equals(that.securityName)) return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = address.hashCode();
+    result = 31 * result + version;
+    result = 31 * result + securityName.hashCode();
+    return result;
+  }
 }
 

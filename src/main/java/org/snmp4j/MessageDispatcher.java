@@ -88,7 +88,7 @@ public interface MessageDispatcher extends TransportListener {
    * @param transport
    *   a <code>TransportMapping</code> instance.
    */
-  void addTransportMapping(TransportMapping transport);
+  void addTransportMapping(TransportMapping<? extends Address> transport);
 
   /**
    * Removes a previously added {@link TransportMapping} from
@@ -99,7 +99,7 @@ public interface MessageDispatcher extends TransportListener {
    *    the <code>TransportMapping</code> instance supplied if it
    * could be successfully removed, <code>null</code> otherwise.
    */
-  TransportMapping removeTransportMapping(TransportMapping transport);
+  TransportMapping removeTransportMapping(TransportMapping<? extends Address> transport);
 
   /**
    * Gets the <code>Collection</code> of transport mappings in this message

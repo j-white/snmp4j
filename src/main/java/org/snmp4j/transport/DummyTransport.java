@@ -54,8 +54,8 @@ public class DummyTransport<A extends IpAddress> extends AbstractTransportMappin
 
   private static final LogAdapter logger = LogFactory.getLogger(DummyTransport.class);
 
-  private final Queue<OctetString> requests = new ConcurrentLinkedQueue<OctetString>();
-  private final Queue<OctetString> responses = new ConcurrentLinkedQueue<OctetString>();
+  private final Queue<MessageContainer> requests = new ConcurrentLinkedQueue<MessageContainer>();
+  private final Queue<MessageContainer> responses = new ConcurrentLinkedQueue<MessageContainer>();
   private boolean listening;
   private A listenAddress;
   private A receiverAddress;
@@ -95,7 +95,7 @@ public class DummyTransport<A extends IpAddress> extends AbstractTransportMappin
       if (logger.isDebugEnabled()) {
         logger.debug("Send request message to '"+address+"': "+ new OctetString(message).toHexString());
       }
-      requests.add(new OctetString(message));
+      requests.add(new MessageContainer(address, new OctetString(message)));
     }
   }
 
@@ -134,10 +134,10 @@ public class DummyTransport<A extends IpAddress> extends AbstractTransportMappin
   private class QueueProcessor implements WorkerTask {
 
     private volatile boolean stop;
-    private Queue<OctetString> queue;
+    private Queue<MessageContainer> queue;
     private AbstractTransportMapping tm;
 
-    public QueueProcessor(Queue<OctetString> queue, AbstractTransportMapping tm) {
+    public QueueProcessor(Queue<MessageContainer> queue, AbstractTransportMapping tm) {
       this.queue = queue;
       this.tm = tm;
     }
@@ -145,14 +145,15 @@ public class DummyTransport<A extends IpAddress> extends AbstractTransportMappin
     @Override
     public void run() {
       while (!stop) {
-        OctetString nextMessage = null;
+        MessageContainer nextMessage = null;
         nextMessage = queue.poll();
         if (nextMessage != null) {
           TransportStateReference stateReference =
             new TransportStateReference(DummyTransport.this, listenAddress, null,
                                         SecurityLevel.undefined, SecurityLevel.undefined,
                                         false, sessionID);
-          tm.fireProcessMessage(receiverAddress, ByteBuffer.wrap(nextMessage.getValue()), stateReference);
+          tm.fireProcessMessage(listenAddress,
+              ByteBuffer.wrap(nextMessage.getPayload().getValue()), stateReference);
         }
         else {
           try {
@@ -203,7 +204,7 @@ public class DummyTransport<A extends IpAddress> extends AbstractTransportMappin
       if (logger.isDebugEnabled()) {
         logger.debug("Send response message to '"+address+"': "+ new OctetString(message).toHexString());
       }
-      responses.add(new OctetString(message));
+      responses.add(new MessageContainer(address, new OctetString(message)));
     }
 
     @Override
@@ -245,5 +246,23 @@ public class DummyTransport<A extends IpAddress> extends AbstractTransportMappin
         ", listenThread=" + listenThread +
         ", sessionID=" + sessionID +
         '}';
+  }
+
+  private class MessageContainer {
+    private Address sourceAddress;
+    private OctetString payload;
+
+    public MessageContainer(Address sourceAddress, OctetString payload) {
+      this.payload = payload;
+      this.sourceAddress = sourceAddress;
+    }
+
+    public OctetString getPayload() {
+      return payload;
+    }
+
+    public Address getSourceAddress() {
+      return sourceAddress;
+    }
   }
 }

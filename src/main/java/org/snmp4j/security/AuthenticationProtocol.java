@@ -27,11 +27,9 @@ import org.snmp4j.smi.OctetString;
  * interface for all SNMP authentication protocols.
  *
  * @author Frank Fock
- * @version 1.0
+ * @version 2.4.0
  */
 public interface AuthenticationProtocol extends SecurityProtocol {
-
-  int MESSAGE_AUTHENTICATION_CODE_LENGTH = 12;
 
   /**
    * Authenticates an outgoing message.
@@ -172,5 +170,13 @@ public interface AuthenticationProtocol extends SecurityProtocol {
    *    procotol.
    */
   int getDigestLength();
+
+  /**
+   * The length of the authentication code (the hashing output length) in octets.
+   * @return
+   *    the length of the authentication code.
+   * @since 2.4.0
+   */
+  int getAuthenticationCodeLength();
 }
 

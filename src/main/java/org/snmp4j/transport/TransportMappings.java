@@ -40,7 +40,7 @@ import java.lang.reflect.InvocationTargetException;
  * mapping for an address class.
  *
  * @author Frank Fock
- * @version 1.1
+ * @version 2.4.1
  * @since 1.1
  */
 public class TransportMappings {
@@ -87,7 +87,7 @@ public class TransportMappings {
    *   cannot be found.
    */
   @SuppressWarnings("unchecked")
-  public TransportMapping createTransportMapping(Address transportAddress) {
+  public TransportMapping<? extends Address> createTransportMapping(Address transportAddress) {
     if (transportMappings == null) {
       registerTransportMappings();
     }

@@ -125,4 +125,5 @@ public class CommunityTarget extends AbstractTarget {
     return "CommunityTarget["+toStringAbstractTarget()+']';
   }
 
+
 }

@@ -39,6 +39,7 @@ public class SnmpEngineEvent extends EventObject {
 
   public static final int ADDED_ENGINE_ID = 1;
   public static final int REMOVED_ENGINE_ID = 2;
+  public static final int IGNORED_ENGINE_ID = 3;
 
   private OctetString engineID;
   private Address engineAddress;

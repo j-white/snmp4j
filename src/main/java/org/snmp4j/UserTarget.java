@@ -110,5 +110,26 @@ public class UserTarget extends SecureTarget {
         ", authoritativeEngineID=" + authoritativeEngineID +
         ']';
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    if (!super.equals(o)) return false;
+
+    UserTarget that = (UserTarget) o;
+
+    if (authoritativeEngineID != null ? !authoritativeEngineID.equals(that.authoritativeEngineID) : that.authoritativeEngineID != null)
+      return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = super.hashCode();
+    result = 31 * result + (authoritativeEngineID != null ? authoritativeEngineID.hashCode() : 0);
+    return result;
+  }
 }
 

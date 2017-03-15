@@ -30,8 +30,8 @@ package org.snmp4j.version;
 public class VersionInfo {
 
   public static final int MAJOR = 2;
-  public static final int MINOR = 3;
-  public static final int UPDATE = 1;
+  public static final int MINOR = 4;
+  public static final int UPDATE = 2;
   public static final String PATCH = "";
 
   public static final String VERSION =

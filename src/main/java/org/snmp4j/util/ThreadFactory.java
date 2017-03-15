@@ -31,7 +31,7 @@ public interface ThreadFactory {
 
   /**
    * Creates a new thread of execution for the supplied task. The returned
-   * <code>WorkerTask</code> is a symetric wrapper for the supplied one.
+   * <code>WorkerTask</code> is a symmetric wrapper for the supplied one.
    * When the returned task is being run, the supplied one will be executed
    * in a new thread of execution until it either terminates or the
    * {@link WorkerTask#terminate()} method has been called.

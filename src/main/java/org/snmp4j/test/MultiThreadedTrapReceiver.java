@@ -65,7 +65,7 @@ public class MultiThreadedTrapReceiver implements CommandResponder {
 //    BasicConfigurator.configure();
   }
 
-  private void init() throws UnknownHostException, IOException {
+  private void init() throws IOException {
     threadPool = ThreadPool.create("Trap", 2);
     dispatcher =
         new MultiThreadedMessageDispatcher(threadPool,
@@ -73,7 +73,7 @@ public class MultiThreadedTrapReceiver implements CommandResponder {
     listenAddress =
         GenericAddress.parse(System.getProperty("snmp4j.listenAddress",
                                                 "udp:0.0.0.0/162"));
-    TransportMapping transport;
+    TransportMapping<? extends Address> transport;
     if (listenAddress instanceof UdpAddress) {
       transport = new DefaultUdpTransportMapping((UdpAddress)listenAddress);
     }

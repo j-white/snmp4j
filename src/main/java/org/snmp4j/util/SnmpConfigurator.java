@@ -96,7 +96,7 @@ public class SnmpConfigurator {
 
   public static final String O_AUTH_PROTOCOL = "a";
   public static final String P_AUTH_PROTOCOL = "org.snmp4j.arg.authProtocol";
-  public static final String F_AUTH_PROTOCOL = "s<(MD5|SHA)>";
+  public static final String F_AUTH_PROTOCOL = "s<(MD5|SHA|SHA224|SHA256|SHA384|SHA512)>";
 
   public static final String O_PRIV_PROTOCOL = "y";
   public static final String P_PRIV_PROTOCOL = "org.snmp4j.arg.privProtocol";
@@ -274,6 +274,18 @@ public class SnmpConfigurator {
         }
         else if ("SHA".equals(authP)) {
           authProtocol = AuthSHA.ID;
+        }
+        else if ("SHA224".equals(authP)) {
+          authProtocol = AuthHMAC128SHA224.ID;
+        }
+        else if ("SHA256".equals(authP)) {
+          authProtocol = AuthHMAC192SHA256.ID;
+        }
+        else if ("SHA384".equals(authP)) {
+          authProtocol = AuthHMAC256SHA384.ID;
+        }
+        else if ("SHA512".equals(authP)) {
+          authProtocol = AuthHMAC384SHA512.ID;
         }
         if ("DES".equals(privP)) {
           privProtocol = PrivDES.ID;

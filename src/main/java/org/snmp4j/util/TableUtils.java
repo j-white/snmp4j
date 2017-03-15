@@ -381,22 +381,35 @@ public class TableUtils extends AbstractSnmpUtility {
         }
       }
       lastSent = new Vector<OID>(sz + 1);
+      int skip = 0;
+      List<Integer> sentColumns = new ArrayList<Integer>(sz);
+      int chunkSize = 0;
       for (int i = sent; i < sent + sz; i++) {
         OID col = lastReceived.get(i);
-        VariableBinding vb = new VariableBinding(col);
-        pdu.add(vb);
-        if (pdu.getBERLength() > target.getMaxSizeRequestPDU()) {
-          pdu.trim();
-          break;
+        // only sent columns that are not complete yet
+        if (col.startsWith(columnOIDs[i])) {
+          VariableBinding vb = new VariableBinding(col);
+          pdu.add(vb);
+          if (pdu.getBERLength() > target.getMaxSizeRequestPDU()) {
+            pdu.trim();
+            break;
+          }
+          else {
+            lastSent.add(lastReceived.get(i));
+            chunkSize++;
+          }
+          sentColumns.add(i);
         }
         else {
-          lastSent.add(lastReceived.get(i));
+          chunkSize++;
         }
       }
       try {
-        Integer startCol = sent;
-        sent += pdu.size();
-        sendRequest(pdu, target, startCol);
+        sent += chunkSize;
+        if (pdu.size() == 0) {
+          return false;
+        }
+        sendRequest(pdu, target, sentColumns);
       }
       catch (Exception ex) {
         logger.error(ex);
@@ -409,12 +422,13 @@ public class TableUtils extends AbstractSnmpUtility {
       return true;
     }
 
-    protected void sendRequest(PDU pdu, Target target, Integer startCol)
+    protected void sendRequest(PDU pdu, Target target, List<Integer> sendColumns)
         throws IOException
     {
-      session.send(pdu, target, startCol, this);
+      session.send(pdu, target, sendColumns, this);
     }
 
+    @SuppressWarnings("unchecked")
     public void onResponse(ResponseEvent event) {
       // Do not forget to cancel the asynchronous request! ;-)
       session.cancel(event.getRequest(), this);
@@ -424,7 +438,7 @@ public class TableUtils extends AbstractSnmpUtility {
       synchronized (this) {
         if (checkResponse(event)) {
           boolean anyMatchInChunk = false;
-          int startCol = (Integer) event.getUserObject();
+          List<Integer> colsOfRequest = (List<Integer>) event.getUserObject();
           PDU request = event.getRequest();
           PDU response = event.getResponse();
           int cols = request.size();
@@ -434,7 +448,7 @@ public class TableUtils extends AbstractSnmpUtility {
             Row row = null;
             anyMatchInChunk = false;
             for (int c = 0; c < request.size(); c++) {
-              int pos = startCol + c;
+              int pos = colsOfRequest.get(c);
               VariableBinding vb = response.get(r * cols + c);
               if (vb.isException()) {
                 continue;
@@ -503,6 +517,9 @@ public class TableUtils extends AbstractSnmpUtility {
                 else {
                   row.add(vb);
                 }
+                lastReceived.set(pos, vb.getOid());
+              }
+              else {
                 lastReceived.set(pos, vb.getOid());
               }
             }

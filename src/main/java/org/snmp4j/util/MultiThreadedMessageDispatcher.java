@@ -88,11 +88,11 @@ public class MultiThreadedMessageDispatcher implements MessageDispatcher {
     return dispatcher.getMessageProcessingModel(messageProcessingModel);
   }
 
-  public void addTransportMapping(TransportMapping transport) {
+  public void addTransportMapping(TransportMapping<? extends Address> transport) {
     dispatcher.addTransportMapping(transport);
   }
 
-  public TransportMapping removeTransportMapping(TransportMapping transport) {
+  public TransportMapping removeTransportMapping(TransportMapping<? extends Address> transport) {
     return dispatcher.removeTransportMapping(transport);
   }
 

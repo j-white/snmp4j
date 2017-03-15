@@ -320,7 +320,7 @@ public class PDU implements BERSerializable, Serializable {
    * @since 1.8
    */
   public void addAllOIDs(VariableBinding[] vbs) {
-    variableBindings.ensureCapacity(variableBindings.size()+vbs.length);
+    variableBindings.ensureCapacity(variableBindings.size() + vbs.length);
     for (VariableBinding vb : vbs) {
       addOID(vb);
     }
@@ -523,6 +523,17 @@ public class PDU implements BERSerializable, Serializable {
   public boolean isConfirmedPdu() {
     return ((type != PDU.REPORT) && (type != PDU.RESPONSE) &&
             (type != PDU.TRAP) && (type != PDU.V1TRAP));
+  }
+
+  /**
+   * Checks whether this PDU is a {@link PDU#RESPONSE} or [@link PDU#REPORT}.
+   * @return
+   *    <code>true</code> if {@link #getType()} returns {@link PDU#RESPONSE} or [@link PDU#REPORT} and
+   *    <code>false</code> otherwise.
+   * @since 2.4.1
+   */
+  public boolean isResponsePdu() {
+    return ((type == PDU.RESPONSE) || (type == PDU.REPORT));
   }
 
   public int getBERLength() {

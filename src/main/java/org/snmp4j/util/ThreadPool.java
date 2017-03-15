@@ -19,6 +19,8 @@
   _##########################################################################*/
 package org.snmp4j.util;
 
+import org.snmp4j.SNMP4JSettings;
+
 import java.util.*;
 
 /**
@@ -94,8 +96,27 @@ public class ThreadPool implements WorkerPool {
         wait();
       }
       catch (InterruptedException ex) {
-        Thread.currentThread().interrupt();
+        handleInterruptedExceptionOnExecute(ex, task);
       }
+    }
+  }
+
+  /**
+   * Handle a interrupted exception on the execution attempt of {@link org.snmp4j.util.WorkerTask}.
+   * If the body is void, execution continues and the interrupted exception is ignored.
+   * To stop the execution, a {@link java.lang.RuntimeException} has to be thrown.
+   * The default behavior is to rethrow the interrupted exception wrapped in a {@link java.lang.RuntimeException}
+   * if {@link org.snmp4j.SNMP4JSettings#forwardRuntimeExceptions} is <code>true</code>. Otherwise, the
+   * interrupted exception is ignored.
+   * @param interruptedException
+   *    the caught InterruptedException.
+   * @param task
+   *    the task to should have been executed, but failed to execute (until now) because of a busy pool.
+   * @since 2.3.3
+   */
+  protected void handleInterruptedExceptionOnExecute(InterruptedException interruptedException, WorkerTask task) {
+    if (SNMP4JSettings.isForwardRuntimeExceptions()) {
+      throw new RuntimeException(interruptedException);
     }
   }
 
