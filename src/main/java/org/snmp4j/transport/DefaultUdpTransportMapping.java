@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - DefaultUdpTransportMapping.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import java.io.InterruptedIOException;
 import org.snmp4j.util.WorkerTask;
 
 /**
- * The <code>DefaultUdpTransportMapping</code> implements a UDP transport
+ * The {@code DefaultUdpTransportMapping} implements a UDP transport
  * mapping based on Java standard IO and using an internal thread for
  * listening on the inbound socket.
  *
@@ -70,7 +70,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
    * @param udpAddress
    *    the local address for sending and receiving of UDP messages.
    * @param reuseAddress
-   *    if <code>true</code> addresses are reused which provides faster socket
+   *    if {@code true} addresses are reused which provides faster socket
    *    binding if an application is restarted for instance.
    * @throws IOException
    *    if socket binding fails.
@@ -121,6 +121,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
    * Closes the socket and stops the listener thread.
    *
    * @throws IOException
+   *    if the socket cannot be closed.
    */
   public void close() throws IOException {
     boolean interrupted = false;
@@ -165,6 +166,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
    * listen thread gracefully and free associated ressources.
    *
    * @throws IOException
+   *    if the listen port could not be bound to the server thread.
    */
   public synchronized void listen() throws IOException {
     if (listener != null) {
@@ -240,7 +242,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
   /**
    * Returns the name of the listen thread.
    * @return
-   *    the thread name if in listening mode, otherwise <code>null</code>.
+   *    the thread name if in listening mode, otherwise {@code null}.
    * @since 1.6
    */
   public String getThreadName() {
@@ -272,7 +274,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
    * This size might not reflect the actual size of the receive buffer, which
    * is implementation specific.
    * @return
-   *    <=0 if the default buffer size of the OS is used, or a value >0 if the
+   *    &lt;=0 if the default buffer size of the OS is used, or a value &gt;0 if the
    *    user specified a buffer size.
    */
   public int getReceiveBufferSize() {
@@ -280,11 +282,11 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
   }
 
   /**
-   * Sets the receive buffer size, which should be > the maximum inbound message
+   * Sets the receive buffer size, which should be greater than the maximum inbound message
    * size. This method has to be called before {@link #listen()} to be
    * effective.
    * @param receiveBufferSize
-   *    an integer value >0 and > {@link #getMaxInboundMessageSize()}.
+   *    an integer value &gt;0 and &gt; {@link #getMaxInboundMessageSize()}.
    */
   public void setReceiveBufferSize(int receiveBufferSize) {
     if (receiveBufferSize <= 0) {
@@ -320,7 +322,7 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
     UdpAddress actualListenAddress = null;
     DatagramSocket socketCopy = socket;
     if (socketCopy != null) {
-      actualListenAddress = new UdpAddress(socketCopy.getInetAddress(), socketCopy.getLocalPort());
+      actualListenAddress = new UdpAddress(socketCopy.getLocalAddress(), socketCopy.getLocalPort());
     }
     return actualListenAddress;
   }
@@ -333,9 +335,9 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
    * @param failedSocket
    *    the socket that caused the exception. By default, he socket will be closed
    *    in order to be able to reopen it. Implementations may also try to reuse the socket, in dependence
-   *    of the <code>socketException</code>.
+   *    of the {@code socketException}.
    * @return
-   *    the new socket or <code>null</code> if the listen thread should be terminated with the provided
+   *    the new socket or {@code null} if the listen thread should be terminated with the provided
    *    exception.
    * @throws SocketException
    *    a new socket exception if the socket could not be renewed.
@@ -391,7 +393,12 @@ public class DefaultUdpTransportMapping extends UdpTransportMapping {
               stop = true;
               continue;
             }
-            socketCopy.receive(packet);
+            try {
+                socketCopy.receive(packet);
+            }
+            catch (SocketTimeoutException ste) {
+                continue;
+            }
           }
           catch (InterruptedIOException iiox) {
             if (iiox.bytesTransferred <= 0) {

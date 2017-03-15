@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - PrivacyProtocol.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ import org.snmp4j.smi.OctetString;
  * The <code>PrivacyProtocol</code> interface defines a common
  * interface for all SNMP privacy protocols.
  *
- * @author Jochen Katz & Frank Fock
+ * @author Frank Fock
+ * @author Jochen Katz
  * @version 1.9
  */
 public interface PrivacyProtocol extends SecurityProtocol {

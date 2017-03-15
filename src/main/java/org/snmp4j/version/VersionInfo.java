@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - VersionInfo.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ package org.snmp4j.version;
 public class VersionInfo {
 
   public static final int MAJOR = 2;
-  public static final int MINOR = 4;
-  public static final int UPDATE = 2;
+  public static final int MINOR = 5;
+  public static final int UPDATE = 5;
   public static final String PATCH = "";
 
   public static final String VERSION =

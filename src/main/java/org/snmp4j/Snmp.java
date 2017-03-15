@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - Snmp.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -31,20 +31,20 @@ import org.snmp4j.transport.*;
 import org.snmp4j.util.*;
 
 /**
- * The <code>Snmp</code> class is the core of SNMP4J. It provides functions to
+ * The {@code Snmp} class is the core of SNMP4J. It provides functions to
  * send and receive SNMP PDUs. All SNMP PDU types can be send. Confirmed
  * PDUs can be sent synchronously and asynchronously.
  * <p>
- * The <code>Snmp</code> class is transport protocol independent. Support for
+ * The {@code Snmp} class is transport protocol independent. Support for
  * a specific {@link TransportMapping} instance is added by calling the
  * {@link #addTransportMapping(TransportMapping transportMapping)} method or
- * creating a <code>Snmp</code> instance by using the non-default constructor
+ * creating a {@code Snmp} instance by using the non-default constructor
  * with the corresponding transport mapping. Transport mappings are used
- * for incoming and outgoing messages.
+ * for incoming and outgoing messages.</p>
  * <p>
  * To setup a default SNMP session for UDP transport and with SNMPv3 support
- * the following code snippet can be used:
- * <p>
+ * the following code snippet can be used:</p>
+ *
  * <pre>
  *   Address targetAddress = GenericAddress.parse("udp:127.0.0.1/161");
  *   TransportMapping transport = new DefaultUdpTransportMapping();
@@ -54,10 +54,10 @@ import org.snmp4j.util.*;
  *   SecurityModels.getInstance().addSecurityModel(usm);
  *   transport.listen();
  * </pre>
- * <p>
+ *
  * How a synchronous SNMPv3 message with authentication and privacy is then
  * sent illustrates the following code snippet:
- * <p>
+ *
  * <pre>
  *   // add user to the USM
  *   snmp.getUSM().addUser(new OctetString("MD5DES"),
@@ -87,8 +87,11 @@ import org.snmp4j.util.*;
  *   // extract the address used by the agent to send the response:
  *   Address peerAddress = response.getPeerAddress();
  * </pre>
+ *
  * <p>
  * An asynchronous SNMPv1 request is sent by the following code:
+ * </p>
+ *
  * <pre>
  *   // setting up target
  *   CommunityTarget target = new CommunityTarget();
@@ -115,9 +118,10 @@ import org.snmp4j.util.*;
  *   };
  *   snmp.sendPDU(pdu, target, null, listener);
  * </pre>
- * </p>
+ *
  * Traps (notifications) and other SNMP PDUs can be received by adding the
- * folling code to the first code snippet above:
+ * following code to the first code snippet above:
+ *
  * <pre>
  *   CommandResponder trapPrinter = new CommandResponder() {
  *     public synchronized void processPdu(CommandResponderEvent e) {
@@ -129,7 +133,7 @@ import org.snmp4j.util.*;
  *   };
  *   snmp.addCommandResponder(trapPrinter);
  * </pre>
- * </p>
+ *
  *
  * @author Frank Fock
  * @version 1.10
@@ -145,13 +149,13 @@ public class Snmp implements Session, CommandResponder {
   private MessageDispatcher messageDispatcher;
 
   /**
-   * The <code>pendingRequests</code> table contains pending requests
-   * accessed trough the key <code>PduHandle</code>
+   * The {@code pendingRequests} table contains pending requests
+   * accessed trough the key {@code PduHandle}
    */
   private final Map<PduHandle, PendingRequest> pendingRequests = new Hashtable<PduHandle, PendingRequest>(50);
 
   /**
-   * The <code>asyncRequests</code> table contains pending requests
+   * The {@code asyncRequests} table contains pending requests
    * accessed trough the key userObject
    */
   private final Map<Object, PduHandle> asyncRequests = new Hashtable<Object, PduHandle>(50);
@@ -177,8 +181,8 @@ public class Snmp implements Session, CommandResponder {
   private CounterSupport counterSupport;
 
   /**
-   * Creates a <code>Snmp</code> instance that uses a
-   * <code>MessageDispatcherImpl</code> with no message processing
+   * Creates a {@code Snmp} instance that uses a
+   * {@code MessageDispatcherImpl} with no message processing
    * models and no security protols (by default). You will have to add
    * those by calling the appropriate methods on
    * {@link #getMessageDispatcher()}.
@@ -186,7 +190,7 @@ public class Snmp implements Session, CommandResponder {
    * At least one transport mapping has to be added before {@link #listen()}
    * is called in order to be able to send and receive SNMP messages.
    * <p>
-   * To initialize a <code>Snmp</code> instance created with this constructor
+   * To initialize a {@code Snmp} instance created with this constructor
    * follow this sample code:
    * <pre>
    * Transport transport = ...;
@@ -395,6 +399,56 @@ public class Snmp implements Session, CommandResponder {
    * registers the provided <code>CommandResponder</code> with the internal
    * <code>NotificationDispatcher</code>.
    *
+   * @param transportMapping
+   *    the TransportMapping that is listening on the provided listenAddress.
+   *    Call <code>TransportMappings.getInstance().createTransportMapping(listenAddress);</code>
+   *    to create such a transport mapping.
+   * @param listenAddress
+   *    the <code>Address</code> denoting the transport end-point
+   *    (interface and port) to listen for incoming notifications.
+   * @param listener
+   *    the <code>CommandResponder</code> instance that should handle
+   *    the received notifications.
+   * @return
+   *    <code>true</code> if registration was successful and <code>false</code>
+   *    if, for example, the transport mapping for the listen address could not
+   *    be created.
+   * @since 2.5.0
+   */
+  public synchronized boolean addNotificationListener(TransportMapping transportMapping,
+                                                      Address listenAddress,
+                                                      CommandResponder listener) {
+    if (transportMapping instanceof ConnectionOrientedTransportMapping) {
+      ((ConnectionOrientedTransportMapping)transportMapping).setConnectionTimeout(0);
+    }
+    transportMapping.addTransportListener(messageDispatcher);
+    if (notificationDispatcher == null) {
+      notificationDispatcher = new NotificationDispatcher();
+      addCommandResponder(notificationDispatcher);
+    }
+    notificationDispatcher.addNotificationListener(listenAddress, transportMapping, listener);
+    try {
+      transportMapping.listen();
+      if (logger.isInfoEnabled()) {
+        logger.info("Added notification listener for address: "+
+            listenAddress);
+      }
+      return true;
+    }
+    catch (IOException ex) {
+      logger.warn("Failed to initialize notification listener for address '"+
+          listenAddress+"': "+ex.getMessage());
+      return false;
+    }
+
+  }
+
+  /**
+   * Adds a notification listener to this Snmp instance. Calling this method
+   * will create a transport mapping for the specified listening address and
+   * registers the provided <code>CommandResponder</code> with the internal
+   * <code>NotificationDispatcher</code>.
+   *
    * @param listenAddress
    *    the <code>Address</code> denoting the transport end-point
    *    (interface and port) to listen for incoming notifications.
@@ -419,28 +473,7 @@ public class Snmp implements Session, CommandResponder {
       }
       return false;
     }
-    if (tm instanceof ConnectionOrientedTransportMapping) {
-      ((ConnectionOrientedTransportMapping)tm).setConnectionTimeout(0);
-    }
-    tm.addTransportListener(messageDispatcher);
-    if (notificationDispatcher == null) {
-      notificationDispatcher = new NotificationDispatcher();
-      addCommandResponder(notificationDispatcher);
-    }
-    notificationDispatcher.addNotificationListener(listenAddress, tm, listener);
-    try {
-      tm.listen();
-      if (logger.isInfoEnabled()) {
-        logger.info("Added notification listener for address: "+
-                    listenAddress);
-      }
-      return true;
-    }
-    catch (IOException ex) {
-      logger.warn("Failed to initialize notification listener for address '"+
-                  listenAddress+"': "+ex.getMessage());
-      return false;
-    }
+    return addNotificationListener(tm, listenAddress, listener);
   }
 
   /**
@@ -464,6 +497,23 @@ public class Snmp implements Session, CommandResponder {
     else {
       return false;
     }
+  }
+
+  /**
+   * Gets the transport mapping registered for the specified listen address.
+   * @param listenAddress
+   *    the listen address.
+   * @return
+   *    the {@link TransportMapping} for the specified listen address or <code>null</code>
+   *    if there is no notification listener for that address.
+   * @since 2.5.0
+   */
+  public TransportMapping getNotificationListenerTM(Address listenAddress) {
+    NotificationDispatcher nd = notificationDispatcher;
+     if (nd != null) {
+        return nd.getTransportMapping(listenAddress);
+     }
+    return null;
   }
 
   /**
@@ -1066,6 +1116,7 @@ public class Snmp implements Session, CommandResponder {
                              int engineTime) {
     MPv3 mpv3 = getMPv3();
     mpv3.setLocalEngineID(engineID);
+    mpv3.setCurrentMsgID(MPv3.randomMsgID(engineBoots));
     USM usm = (USM) mpv3.getSecurityModel(SecurityModel.SECURITY_MODEL_USM);
     usm.setLocalEngine(new OctetString(engineID), engineBoots, engineTime);
   }
@@ -1094,7 +1145,7 @@ public class Snmp implements Session, CommandResponder {
    * because SNMP4J automatically discovers authoritative engine IDs and
    * also automatically synchronize engine time values.
    * <p>
-   * <em>For this method to operate succesfully, the discover engine IDs
+   * <em>For this method to operate successfully, the discover engine IDs
    * flag in {@link USM} must be <code>true</code> (which is the default).
    * </em>
    * @param address
@@ -1181,6 +1232,16 @@ public class Snmp implements Session, CommandResponder {
    */
   public void processPdu(CommandResponderEvent event) {
     PduHandle handle = event.getPduHandle();
+    if ((SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) &&
+        (handle instanceof RequestStatistics)) {
+      RequestStatistics requestStatistics = (RequestStatistics)handle;
+      counterSupport.fireIncrementCounter(new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsRequestRuntime,
+          requestStatistics.getResponseRuntimeNanos()));
+      CounterEvent counterEvent =
+          new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableRuntime, event.getPeerAddress(),
+              requestStatistics.getResponseRuntimeNanos());
+      counterSupport.fireIncrementCounter(counterEvent);
+    }
     PDU pdu = event.getPDU();
     if (pdu.getType() == PDU.REPORT) {
       event.setProcessed(true);
@@ -1613,7 +1674,8 @@ public class Snmp implements Session, CommandResponder {
         waitTime = new CounterEvent(this, SnmpConstants.snmp4jStatsRequestWaitTime, System.nanoTime());
         if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
           waitTimeTarget =
-              new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableWaitTime, target, System.nanoTime());
+              new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableWaitTime,
+                  target.getAddress(), System.nanoTime());
         }
       }
       if (isEmptyContextEngineID(pdu)) {
@@ -1784,7 +1846,7 @@ public class Snmp implements Session, CommandResponder {
                     new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsRequestRetries));
                 if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
                   counterSupport.fireIncrementCounter(
-                      new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableRetries, m_target, 1));
+                      new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableRetries, m_target.getAddress(), 1));
                 }
               }
             }
@@ -1868,9 +1930,9 @@ public class Snmp implements Session, CommandResponder {
         if (counterSupport != null) {
           counterSupport.fireIncrementCounter(
               new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsRequestTimeouts));
-          if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
+          if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended && (m_target != null)) {
             counterSupport.fireIncrementCounter(
-                new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableTimeouts, m_target, 1));
+                new CounterEvent(Snmp.this, SnmpConstants.snmp4jStatsReqTableTimeouts, m_target.getAddress(), 1));
           }
         }
       }
@@ -1953,7 +2015,7 @@ public class Snmp implements Session, CommandResponder {
    * and to registered listeners.
    *
    * @author Frank Fock
-   * @version 1.6
+   * @version 2.5.0
    * @since 1.6
    */
   class NotificationDispatcher implements CommandResponder {
@@ -1963,6 +2025,10 @@ public class Snmp implements Session, CommandResponder {
     private Hashtable<TransportMapping, CommandResponder> notificationTransports = new Hashtable<TransportMapping, CommandResponder>(10);
 
     protected NotificationDispatcher() {
+    }
+
+    public TransportMapping getTransportMapping(Address listenAddress) {
+      return notificationListeners.get(listenAddress);
     }
 
     public synchronized void addNotificationListener(Address listenAddress,
@@ -1983,29 +2049,14 @@ public class Snmp implements Session, CommandResponder {
       tm.removeTransportListener(messageDispatcher);
       notificationTransports.remove(tm);
 
-      try {
-        tm.close();
-      }
-      catch (IOException ex) {
-        logger.error(ex);
-        if (logger.isDebugEnabled()) {
-          ex.printStackTrace();
-        }
-      }
+      closeTransportMapping(tm);
       return true;
     }
 
     public synchronized void closeAll() {
       notificationTransports.clear();
       for (TransportMapping tm : notificationListeners.values()) {
-        try {
-          tm.close();
-        } catch (IOException ex) {
-          logger.error(ex);
-          if (logger.isDebugEnabled()) {
-            ex.printStackTrace();
-          }
-        }
+        closeTransportMapping(tm);
       }
       notificationListeners.clear();
     }
@@ -2054,6 +2105,18 @@ public class Snmp implements Session, CommandResponder {
                                           event.getMaxSizeResponsePDU(),
                                           event.getStateReference(),
                                           new StatusInformation());
+    }
+  }
+
+  protected void closeTransportMapping(TransportMapping tm) {
+    try {
+      tm.close();
+    }
+    catch (IOException ex) {
+      logger.error(ex);
+      if (logger.isDebugEnabled()) {
+        ex.printStackTrace();
+      }
     }
   }
 

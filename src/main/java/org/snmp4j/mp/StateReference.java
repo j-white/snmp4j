@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - StateReference.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -47,13 +47,15 @@ public class StateReference implements Serializable {
   private byte[] securityName;
   private int securityLevel;
   private SecurityStateReference securityStateReference;
-  private int msgID;
+  private MessageID msgID;
   private int maxSizeResponseScopedPDU;
   private int msgFlags;
   private PduHandle pduHandle;
   private byte[] securityEngineID;
   private int errorCode = 0;
-  private List<Integer> retryMsgIDs;
+  protected List<MessageID> retryMsgIDs;
+  private int matchedMsgID;
+  private long responseRuntimeNanos;
 
   /**
    * Default constructor.
@@ -118,7 +120,7 @@ public class StateReference implements Serializable {
                         byte[] contextName,
                         SecurityStateReference secStateReference,
                         int errorCode) {
-    this.msgID = msgID;
+    this.msgID = createMessageID(msgID);
     this.msgFlags = msgFlags;
     this.maxSizeResponseScopedPDU = maxSizeResponseScopedPDU;
     this.pduHandle = pduHandle;
@@ -180,10 +182,13 @@ public class StateReference implements Serializable {
   public SecurityStateReference getSecurityStateReference() {
     return securityStateReference;
   }
-  public void setMsgID(int msgID) {
+  public void setMsgID(MessageID msgID) {
     this.msgID = msgID;
   }
-  public int getMsgID() {
+  public void setMsgID(int msgID) {
+    this.msgID = createMessageID(msgID);
+  }
+  public MessageID getMsgID() {
     return msgID;
   }
   public void setMsgFlags(int msgFlags) {
@@ -216,6 +221,27 @@ public class StateReference implements Serializable {
 
   public void setPduHandle(PduHandle pduHandle) {
     this.pduHandle = pduHandle;
+    updateRequestStatisticsPduHandle(pduHandle);
+  }
+
+  protected void updateRequestStatisticsPduHandle(PduHandle pduHandle) {
+    if (pduHandle instanceof RequestStatistics) {
+      RequestStatistics requestStatistics = (RequestStatistics)pduHandle;
+      requestStatistics.setTotalMessagesSent(1+ ((retryMsgIDs != null) ? retryMsgIDs.size() : 0));
+      requestStatistics.setResponseRuntimeNanos(responseRuntimeNanos);
+      if (msgID.getID() == matchedMsgID) {
+        requestStatistics.setIndexOfMessageResponded(0);
+      }
+      else if (retryMsgIDs != null){
+        int index = 1;
+        for (Iterator<MessageID> it = retryMsgIDs.iterator(); it.hasNext(); index++) {
+          if (it.next().getID() == matchedMsgID) {
+            requestStatistics.setIndexOfMessageResponded(index);
+            break;
+          }
+        }
+      }
+    }
   }
 
   public void setSecurityEngineID(byte[] securityEngineID) {
@@ -230,9 +256,31 @@ public class StateReference implements Serializable {
     this.transportMapping = transportMapping;
   }
 
-  public boolean isMatchingMessageID(int msgID) {
+  protected boolean isMatchingMessageID(MessageID msgID) {
     return ((this.msgID == msgID) ||
             ((retryMsgIDs != null) && (retryMsgIDs.contains(msgID))));
+  }
+
+  public boolean isMatchingMessageID(int msgID) {
+    if (this.msgID.getID() == msgID) {
+      matchedMsgID = msgID;
+      if (this.msgID instanceof TimedMessageID) {
+        responseRuntimeNanos = System.nanoTime() - ((TimedMessageID)this.msgID).getCreationNanoTime();
+      }
+    }
+    else if (retryMsgIDs != null) {
+      for (MessageID retryMsgID : retryMsgIDs) {
+        if (retryMsgID.getID() == msgID) {
+          matchedMsgID = msgID;
+          if (this.msgID instanceof TimedMessageID) {
+            responseRuntimeNanos = System.nanoTime() - ((TimedMessageID)this.msgID).getCreationNanoTime();
+          }
+          break;
+        }
+      }
+    }
+    updateRequestStatisticsPduHandle(pduHandle);
+    return (matchedMsgID == msgID);
   }
 
   public boolean equals(Object o) {
@@ -257,7 +305,7 @@ public class StateReference implements Serializable {
   }
 
   public int hashCode() {
-    return msgID;
+    return msgID.getID();
   }
 
   public String toString() {
@@ -271,19 +319,26 @@ public class StateReference implements Serializable {
         ",retryMsgIDs="+retryMsgIDs+"]";
   }
 
-  public synchronized void addMessageIDs(List<Integer> msgIDs) {
+  public synchronized void addMessageIDs(List<MessageID> msgIDs) {
     if (retryMsgIDs == null) {
-      retryMsgIDs = new ArrayList<Integer>(msgIDs.size());
+      retryMsgIDs = new ArrayList<MessageID>(msgIDs.size());
     }
     retryMsgIDs.addAll(msgIDs);
   }
 
-  public synchronized List<Integer> getMessageIDs() {
-    List<Integer> msgIDs = new ArrayList<Integer>(1 + ((retryMsgIDs != null) ? retryMsgIDs.size() : 0));
+  public synchronized List<MessageID> getMessageIDs() {
+    List<MessageID> msgIDs = new ArrayList<MessageID>(1 + ((retryMsgIDs != null) ? retryMsgIDs.size() : 0));
     msgIDs.add(msgID);
     if (retryMsgIDs != null) {
       msgIDs.addAll(retryMsgIDs);
     }
     return msgIDs;
+  }
+
+  protected MessageID createMessageID(int msgID) {
+    if (SNMP4JSettings.getSnmp4jStatistics() == SNMP4JSettings.Snmp4jStatistics.extended) {
+      return new TimedMessageID(msgID);
+    }
+    return new SimpleMessageID(msgID);
   }
 }

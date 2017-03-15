@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - TLSTM.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -108,9 +108,11 @@ public class TLSTM extends TcpTransportMapping {
 
   /**
    * Creates a TLS transport mapping with the server for incoming
-   * messages bind to the given address. The <code>securityCallback</code>
+   * messages bind to the given address. The {@code securityCallback}
    * needs to be specified before {@link #listen()} is called.
    *
+   * @param address
+   *    the address to bind for incoming requests.
    * @throws java.io.IOException
    *    on failure of binding a local port.
    */
@@ -140,7 +142,7 @@ public class TLSTM extends TcpTransportMapping {
       throw new IOException("Failed to setup TLSTMTrustManagerFactory: "+ex.getMessage(), ex);
     }
     catch (IllegalAccessException ex) {
-      throw new IOException("Failed to init TLSTMTrustManagerFactory: "+ex.getMessage(), ex);
+      throw new IOException("Failed to access TLSTMTrustManagerFactory: "+ex.getMessage(), ex);
     }
     catch (InstantiationException ex) {
       throw new IOException("Failed to instantiate TLSTMTrustManagerFactory: "+ex.getMessage(), ex);
@@ -244,14 +246,14 @@ public class TLSTM extends TcpTransportMapping {
 
   /**
    * Sets the certificate alias used for client and server authentication
-   * by this TLSTM. Setting this property to a value other than <code>null</code>
+   * by this TLSTM. Setting this property to a value other than {@code null}
    * filters out any certificates which are not in the chain of the given
    * alias.
    *
    * @param localCertificateAlias
    *    a certificate alias which filters a single certification chain from
-   *    the <code>javax.net.ssl.keyStore</code> key store to be used to
-   *    authenticate this TLS transport mapping. If <code>null</code> no
+   *    the {@code javax.net.ssl.keyStore} key store to be used to
+   *    authenticate this TLS transport mapping. If {@code null} no
    *    filtering appears, which could lead to more than a single chain
    *    available for authentication by the peer, which would violate the
    *    TLSTM standard requirements.
@@ -296,12 +298,13 @@ public class TLSTM extends TcpTransportMapping {
   }
 
   /**
-   * Listen for incoming and outgoing requests. If the <code>serverEnabled</code>
-   * member is <code>false</code> the server for incoming requests is not
+   * Listen for incoming and outgoing requests. If the {@code serverEnabled}
+   * member is {@code false} the server for incoming requests is not
    * started. This starts the internal server thread that processes messages.
    * @throws java.net.SocketException
    *    when the transport is already listening for incoming/outgoing messages.
    * @throws java.io.IOException
+   *    if the listen port could not be bound to the server thread.
    */
   public synchronized void listen() throws IOException {
     if (server != null) {
@@ -340,7 +343,7 @@ public class TLSTM extends TcpTransportMapping {
   /**
    * Returns the name of the listen thread.
    * @return
-   *    the thread name if in listening mode, otherwise <code>null</code>.
+   *    the thread name if in listening mode, otherwise {@code null}.
    * @since 1.6
    */
   public String getThreadName() {
@@ -410,8 +413,8 @@ public class TLSTM extends TcpTransportMapping {
    * @param remoteAddress
    *    the address of the peer socket.
    * @return
-   *    <code>true</code> if the connection has been closed and
-   *    <code>false</code> if there was nothing to close.
+   *    {@code true} if the connection has been closed and
+   *    {@code false} if there was nothing to close.
    * @throws java.io.IOException
    *    if the remote address cannot be closed due to an IO exception.
    * @since 1.7.1
@@ -445,14 +448,15 @@ public class TLSTM extends TcpTransportMapping {
   /**
    * Sends a SNMP message to the supplied address.
    * @param address
-   *    an <code>TcpAddress</code>. A <code>ClassCastException</code> is thrown
-   *    if <code>address</code> is not a <code>TcpAddress</code> instance.
+   *    an {@code TcpAddress}. A {@code ClassCastException} is thrown
+   *    if {@code address} is not a {@code TcpAddress} instance.
    * @param message byte[]
    *    the message to sent.
    * @param tmStateReference
    *    the (optional) transport model state reference as defined by
    *    RFC 5590 section 6.1.
    * @throws java.io.IOException
+   *    if an IO exception occurs while trying to send the message.
    */
   public void sendMessage(TcpAddress address, byte[] message,
                           TransportStateReference tmStateReference)
@@ -505,7 +509,7 @@ public class TLSTM extends TcpTransportMapping {
    * until the {@link #listen()} method is called (if the transport is already
    * listening, {@link #close()} has to be called before).
    * @param serverEnabled
-   *    if <code>true</code> if the transport will listens for incoming
+   *    if {@code true} if the transport will listens for incoming
    *    requests after {@link #listen()} has been called.
    */
   public void setServerEnabled(boolean serverEnabled) {
@@ -591,7 +595,7 @@ public class TLSTM extends TcpTransportMapping {
    * Sets optional server socket options. The default implementation does
    * nothing.
    * @param serverSocket
-   *    the <code>ServerSocket</code> to apply additional non-default options.
+   *    the {@code ServerSocket} to apply additional non-default options.
    */
   protected void setSocketOptions(ServerSocket serverSocket) {
   }
@@ -1053,8 +1057,8 @@ public class TLSTM extends TcpTransportMapping {
      * @param entry
      *    the session to use.
      * @return
-     *    <code>true</code> if processing of delegated tasks has been
-     *    finished, <code>false</code> otherwise.
+     *    {@code true} if processing of delegated tasks has been
+     *    finished, {@code false} otherwise.
      */
     public boolean runDelegatedTasks(SSLEngineResult result,
                                      SocketEntry entry) throws IOException {
@@ -1074,7 +1078,6 @@ public class TLSTM extends TcpTransportMapping {
         }
         logger.info("Handshake status = " + status);
       }
-      System.err.println("TASK:"+result);
       switch (result.getStatus()) {
         case BUFFER_UNDERFLOW:
           entry.inNetBuffer.limit(entry.inNetBuffer.capacity());
@@ -1515,7 +1518,6 @@ public class TLSTM extends TcpTransportMapping {
           logger.debug("Read channel not open, no bytes read from " +
                        incomingAddress);
         }
-        return;
       }
     }
 
@@ -1701,7 +1703,7 @@ public class TLSTM extends TcpTransportMapping {
     /**
      * Gets the SSLContext for this SSL connection.
      * @param useClientMode
-     *    <code>true</code> if the connection is established in client mode.
+     *    {@code true} if the connection is established in client mode.
      * @param transportStateReference
      *    the transportStateReference with additional
      *    security information for the SSL connection

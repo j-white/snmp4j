@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - SecurityProtocol.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,8 +26,9 @@ import org.snmp4j.smi.OID;
  * The <code>SecurityProtocol</code> class defines common methods of
  * authentication and privacy protocols.
  *
- * @author Jochen Katz & Frank Fock
- * @version 1.0
+ * @author Frank Fock
+ * @author Jochen Katz
+ * @version 2.5.0
  */
 public interface SecurityProtocol extends Serializable {
 
@@ -37,6 +38,14 @@ public interface SecurityProtocol extends Serializable {
    *    an <code>OID</code> instance.
    */
   OID getID();
+
+  /**
+   * Checks whether this security protocol is actually supported by this Java runtime environment.
+   * @return
+   *    <code>true</code> if this security protocol is supported, <code>false</code> otherwise.
+   * @since 2.5.0
+   */
+  boolean isSupported();
 
 }
 

@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - ScopedPDU.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -135,6 +135,7 @@ public class ScopedPDU extends PDU {
    * @param inputStream an <code>InputStream</code> containing a BER encoded
    *   byte stream.
    * @throws IOException
+   *   if there is a BER encoding error or other IO exception in the input stream.
    */
   public void decodeBER(BERInputStream inputStream) throws IOException {
     MutableByte mutableByte = new MutableByte();
@@ -156,9 +157,10 @@ public class ScopedPDU extends PDU {
    * @return a string representation of the object.
    */
   public String toString() {
-    StringBuffer buf = new StringBuffer();
+    StringBuilder buf = new StringBuilder();
     buf.append(getTypeString(type));
-    buf.append("[{contextEngineID="+contextEngineID+", contextName="+contextName+"}, requestID=");
+    buf.append("[{contextEngineID=").append(contextEngineID).append(", contextName=").
+            append(contextName).append("}, requestID=");
     buf.append(requestID);
     buf.append(", errorStatus=");
     buf.append(errorStatus);

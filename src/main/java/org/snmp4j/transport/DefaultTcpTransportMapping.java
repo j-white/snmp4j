@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - DefaultTcpTransportMapping.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -37,12 +37,12 @@ import org.snmp4j.util.WorkerTask;
 import org.snmp4j.util.CommonTimer;
 
 /**
- * The <code>DefaultTcpTransportMapping</code> implements a TCP transport
+ * The {@code DefaultTcpTransportMapping} implements a TCP transport
  * mapping with the Java 1.4 new IO API.
- * <p>
+ *
  * It uses a single thread for processing incoming and outgoing messages.
- * The thread is started when the <code>listen</code> method is called, or
- * when an outgoing request is sent using the <code>sendMessage</code> method.
+ * The thread is started when the {@code listen} method is called, or
+ * when an outgoing request is sent using the {@code sendMessage} method.
  *
  * @author Frank Fock
  * @version 1.11
@@ -99,12 +99,13 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
   }
 
   /**
-   * Listen for incoming and outgoing requests. If the <code>serverEnabled</code>
-   * member is <code>false</code> the server for incoming requests is not
+   * Listen for incoming and outgoing requests. If the {@code serverEnabled}
+   * member is {@code false} the server for incoming requests is not
    * started. This starts the internal server thread that processes messages.
    * @throws SocketException
    *    when the transport is already listening for incoming/outgoing messages.
    * @throws IOException
+   *    if the listen port could not be bound to the server thread.
    */
   public synchronized void listen() throws java.io.IOException {
     if (server != null) {
@@ -174,7 +175,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
   /**
    * Returns the name of the listen thread.
    * @return
-   *    the thread name if in listening mode, otherwise <code>null</code>.
+   *    the thread name if in listening mode, otherwise {@code null}.
    * @since 1.6
    */
   public String getThreadName() {
@@ -241,8 +242,8 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
    * @param remoteAddress
    *    the address of the peer socket.
    * @return
-   *    <code>true</code> if the connection has been closed and
-   *    <code>false</code> if there was nothing to close.
+   *    {@code true} if the connection has been closed and
+   *    {@code false} if there was nothing to close.
    * @throws IOException
    *    if the remote address cannot be closed due to an IO exception.
    * @since 1.7.1
@@ -276,14 +277,15 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
   /**
    * Sends a SNMP message to the supplied address.
    * @param address
-   *    an <code>TcpAddress</code>. A <code>ClassCastException</code> is thrown
-   *    if <code>address</code> is not a <code>TcpAddress</code> instance.
+   *    an {@code TcpAddress}. A {@code ClassCastException} is thrown
+   *    if {@code address} is not a {@code TcpAddress} instance.
    * @param message byte[]
    *    the message to sent.
    * @param tmStateReference
    *    the (optional) transport model state reference as defined by
    *    RFC 5590 section 6.1.
    * @throws IOException
+   *    if an IO exception occurs while trying to send the message.
    */
   public void sendMessage(TcpAddress address, byte[] message,
                           TransportStateReference tmStateReference)
@@ -335,7 +337,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
    * until the {@link #listen()} method is called (if the transport is already
    * listening, {@link #close()} has to be called before).
    * @param serverEnabled
-   *    if <code>true</code> if the transport will listens for incoming
+   *    if {@code true} if the transport will listens for incoming
    *    requests after {@link #listen()} has been called.
    */
   public void setServerEnabled(boolean serverEnabled) {
@@ -348,7 +350,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
    * able to decode the total length of a message for this transport mapping
    * protocol(s).
    * @param messageLengthDecoder
-   *    a <code>MessageLengthDecoder</code> instance.
+   *    a {@code MessageLengthDecoder} instance.
    */
   public void setMessageLengthDecoder(MessageLengthDecoder messageLengthDecoder) {
     if (messageLengthDecoder == null) {
@@ -402,7 +404,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
    * Sets optional server socket options. The default implementation does
    * nothing.
    * @param serverSocket
-   *    the <code>ServerSocket</code> to apply additional non-default options.
+   *    the {@code ServerSocket} to apply additional non-default options.
    */
   protected void setSocketOptions(ServerSocket serverSocket) {
   }
@@ -614,18 +616,30 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
       if (serverEnabled) {
         // Create a new server socket and set to non blocking mode
         ssc = ServerSocketChannel.open();
-        ssc.configureBlocking(false);
+        try {
+          ssc.configureBlocking(false);
 
-        // Bind the server socket
-        InetSocketAddress isa = new InetSocketAddress(tcpAddress.getInetAddress(),
-            tcpAddress.getPort());
-        setSocketOptions(ssc.socket());
-        ssc.socket().bind(isa);
-        // Register accepts on the server socket with the selector. This
-        // step tells the selector that the socket wants to be put on the
-        // ready list when accept operations occur, so allowing multiplexed
-        // non-blocking I/O to take place.
-        ssc.register(selector, SelectionKey.OP_ACCEPT);
+          // Bind the server socket
+          InetSocketAddress isa = new InetSocketAddress(tcpAddress.getInetAddress(),
+              tcpAddress.getPort());
+          setSocketOptions(ssc.socket());
+          ssc.socket().bind(isa);
+          // Register accepts on the server socket with the selector. This
+          // step tells the selector that the socket wants to be put on the
+          // ready list when accept operations occur, so allowing multiplexed
+          // non-blocking I/O to take place.
+          ssc.register(selector, SelectionKey.OP_ACCEPT);
+        }
+        catch (IOException iox) {
+          logger.warn("Socket bind failed for "+tcpAddress+": "+iox.getMessage());
+          try {
+            ssc.close();
+          }
+          catch (IOException ioxClose) {
+            logger.warn("Socket close failed after bind failure for "+tcpAddress+": "+ioxClose.getMessage());
+          }
+          throw iox;
+        }
       }
     }
 
@@ -851,16 +865,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
                     }
                     catch (IOException iox) {
                       // IO exception -> channel closed remotely
-                      logger.warn(iox);
-                      sk.cancel();
-                      readChannel.close();
-                      TransportStateEvent e =
-                          new TransportStateEvent(DefaultTcpTransportMapping.this,
-                                                  incomingAddress,
-                                                  TransportStateEvent.
-                                                  STATE_DISCONNECTED_REMOTELY,
-                                                  iox);
-                      fireConnectionStateChanged(e);
+                      socketClosedRemotely(sk, readChannel, incomingAddress);
                     }
                   }
                 }
@@ -1245,6 +1250,7 @@ public class DefaultTcpTransportMapping extends TcpTransportMapping {
                                 STATE_DISCONNECTED_REMOTELY,
                                 null);
     fireConnectionStateChanged(e);
+    sockets.remove(incomingAddress);
   }
 
 }

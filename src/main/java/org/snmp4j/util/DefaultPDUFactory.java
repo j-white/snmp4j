@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - DefaultPDUFactory.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import org.snmp4j.smi.OctetString;
  * for a SNMPv3 target. In all other cases a {@link PDU} instance is created.
  *
  * @author Frank Fock
- * @version 2.2
+ * @version 2.5.1
  * @since 1.0.4
  */
 public class DefaultPDUFactory implements PDUFactory {
@@ -56,11 +56,15 @@ public class DefaultPDUFactory implements PDUFactory {
 
   /**
    * Creates a PDU factory for the specified PDU type.
+   * Context engine ID and name will be set to empty {@link OctetString}
+   * instances.
    * @param pduType
    *    a PDU type as specified by {@link PDU}.
    */
   public DefaultPDUFactory(int pduType) {
     setPduType(pduType);
+    this.contextEngineID = new OctetString();
+    this.contextName = new OctetString();
   }
 
   /**
@@ -95,7 +99,25 @@ public class DefaultPDUFactory implements PDUFactory {
    * @return PDU a PDU instance that is compatible with the supplied target.
    */
   public PDU createPDU(Target target) {
-    return createPDU(target, pduType);
+    PDU pdu = createPDU(target, pduType);
+    applyContextInfoToScopedPDU(pdu);
+    return pdu;
+  }
+
+  /**
+   * Sets context engine ID and context name members on the given PDU if that PDU
+   * is a {@link ScopedPDU}.
+   *
+   * @param pdu
+   *    a {@link PDU} instance which is modified if it is a {@link ScopedPDU} instance.
+   * @since 2.5.0
+   */
+  protected void applyContextInfoToScopedPDU(PDU pdu) {
+    if (pdu instanceof ScopedPDU) {
+      ScopedPDU scopedPDU = (ScopedPDU)pdu;
+      scopedPDU.setContextEngineID(contextEngineID);
+      scopedPDU.setContextName(contextName);
+    }
   }
 
   /**
@@ -178,7 +200,9 @@ public class DefaultPDUFactory implements PDUFactory {
    */
   @Override
   public PDU createPDU(MessageProcessingModel messageProcessingModel) {
-    return createPduByMP(messageProcessingModel);
+    PDU pdu = createPduByMP(messageProcessingModel);
+    applyContextInfoToScopedPDU(pdu);
+    return pdu;
   }
 
   /**

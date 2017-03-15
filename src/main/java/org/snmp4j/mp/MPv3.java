@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - MPv3.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import org.snmp4j.smi.*;
 import org.snmp4j.util.PDUFactory;
 
 /**
- * The <code>MPv3</code> is the message processing model for SNMPv3.
+ * The {@code MPv3} is the message processing model for SNMPv3.
  *
  * @author Frank Fock
  * @version 1.9.2
@@ -44,6 +44,8 @@ public class MPv3
   public static final int ID = MessageProcessingModel.MPv3;
   public static final int MPv3_REPORTABLE_FLAG = 4;
   public static final int MAX_MESSAGE_ID = 2147483647;
+
+  private static final int INT_LOW_16BIT_MASK = 0x0000FFFF;
 
   /**
    * Local engine ID constant for context engineID discovery
@@ -103,7 +105,7 @@ public class MPv3
   /**
    * Creates a MPv3 with a supplied local engine ID.
    * @param localEngineID
-   *    the local engine ID. Its length must be >= 5 and <= 32.
+   *    the local engine ID. Its length must be greater or equal than 5 and less or equal than 32.
    */
   public MPv3(byte[] localEngineID) {
     this(localEngineID, null);
@@ -114,9 +116,9 @@ public class MPv3
    * Creates a MPv3 with a supplied local engine ID and {@link PDUFactory}
    * for incoming messages.
    * @param localEngineID
-   *    the local engine ID. Its length must be >= 5 and <= 32.
+   *    the local engine ID. Its length must be greater or equal than 5 and less or equal than 32.
    * @param incomingPDUFactory
-   *    a {@link PDUFactory}. If <code>null</code> the default factory will be
+   *    a {@link PDUFactory}. If {@code null} the default factory will be
    *    used which creates {@link ScopedPDU} instances.
    * @since 1.9.1
    */
@@ -143,10 +145,12 @@ public class MPv3
   /**
    * Creates a fully qualified MPv3 instance with custom security protocols
    * and models as well as a custom counter support.
+   * The current message ID is set using the USM engine boots counter (if available)
+   * according to the RFC3412 §6.2.
    * @param localEngineID
-   *    the local engine ID. Its length must be >= 5 and <= 32.
+   *    the local engine ID. Its length must be greater or equal than 5 and less or equal than 32.
    * @param incomingPDUFactory
-   *    a {@link PDUFactory}. If <code>null</code> the default factory will be
+   *    a {@link PDUFactory}. If {@code null} the default factory will be
    *    used which creates {@link ScopedPDU} instances.
    * @param secProtocols
    *    the SecurityProtocols instance to use when looking up a security
@@ -186,6 +190,10 @@ public class MPv3
     }
     this.counterSupport = counterSupport;
     setLocalEngineID(localEngineID);
+    SecurityModel usm = secModels.getSecurityModel(new Integer32(USM.SECURITY_MODEL_USM));
+    if (usm instanceof USM) {
+      setCurrentMsgID(randomMsgID(((USM)usm).getEngineBoots()));
+    }
   }
 
   /**
@@ -294,8 +302,14 @@ public class MPv3
   /**
    * Sets the local engine ID. This value must not be changed after message
    * processing has been started.
+   * Note: When setting the local engine ID, the engine boots counter should
+   * be known at the same time. Thus, please also call
+   * <pre>
+   *   setCurrentMsgID(randomMsgID(engineBoots));
+   * </pre>
+   * before starting the message processing.
    * @param engineID
-   *    the local engine ID. Its length must be >= 5 and <= 32.
+   *    the local engine ID. Its length must be greater or equal than 5 and less or equal than 32.
    */
   public void setLocalEngineID(byte[] engineID) {
     if ((engineID == null) ||
@@ -304,6 +318,24 @@ public class MPv3
       throw new IllegalArgumentException("Illegal (local) engine ID");
     }
     this.localEngineID = engineID;
+  }
+
+  /**
+   * Creates a random message ID according to the method proposed by RFC3412:
+   * "Values for msgID SHOULD be generated in a manner that avoids re-use
+   * of any outstanding values.  Doing so provides protection against some
+   * replay attacks.  One possible implementation strategy would be to use
+   * the low-order bits of snmpEngineBoots [RFC3411] as the high-order
+   * portion of the msgID value and a monotonically increasing integer for
+   * the low-order portion of msgID."
+   *
+   * @param engineBoots
+   *    the number of boot operations already occurred for this SNMP entity.
+   * @return
+   *    the new random message ID.
+   */
+  public static int randomMsgID(int engineBoots) {
+    return (new Random().nextInt(MAX_MESSAGE_ID) & INT_LOW_16BIT_MASK) | ((engineBoots & INT_LOW_16BIT_MASK) << 16);
   }
 
   /**
@@ -330,8 +362,8 @@ public class MPv3
    * @param id
    *    an authentication protocol OID.
    * @return
-   *    an <code>AuthenticationProtocol</code> instance if the supplied ID
-   *    is supported, otherwise <code>null</code> is returned.
+   *    an {@link AuthenticationProtocol} instance if the supplied ID
+   *    is supported, otherwise {@code null} is returned.
    */
   public AuthenticationProtocol getAuthProtocol(OID id) {
     return securityProtocols.getAuthenticationProtocol(id);
@@ -342,8 +374,8 @@ public class MPv3
    * @param id
    *    an privacy protocol OID.
    * @return
-   *    an <code>PrivacyProtocol</code> instance if the supplied ID
-   *    is supported, otherwise <code>null</code> is returned.
+   *    an {@link PrivacyProtocol} instance if the supplied ID
+   *    is supported, otherwise {@code null} is returned.
    */
   public PrivacyProtocol getPrivProtocol(OID id) {
     return securityProtocols.getPrivacyProtocol(id);
@@ -354,8 +386,8 @@ public class MPv3
    * @param id
    *    a security model ID.
    * @return
-   *    a <code>SecurityModel</code> instance if the supplied ID
-   *    is supported, otherwise <code>null</code> is returned.
+   *    a {@link SecurityModel} instance if the supplied ID
+   *    is supported, otherwise {@code null} is returned.
    */
   public SecurityModel getSecurityModel(int id) {
     return securityModels.getSecurityModel(new Integer32(id));
@@ -372,12 +404,12 @@ public class MPv3
   /**
    * Adds an engine ID (other than the local engine ID) to the internal storage.
    * @param address
-   *    the <code>Address</code> of the remote SNMP engine.
+   *    the {@link Address} of the remote SNMP engine.
    * @param engineID
    *    the engine ID of the remote SNMP engine.
    * @return
-   *    <code>true</code> if the engine ID has been added, <code>false</code>
-   *    otherwise (if the supplied <code>engineID</code> equals the local one).
+   *    {@code true} if the engine ID has been added, <code>false</code>
+   *    otherwise (if the supplied {@code engineID} equals the local one).
    */
   public boolean addEngineID(Address address, OctetString engineID) {
     if (!Arrays.equals(this.localEngineID, engineID.getValue())) {
@@ -408,7 +440,7 @@ public class MPv3
    * @param engineID
    *    the engine ID to cache.
    * @return
-   *    the previous engine ID or <code>null</code> if there was no engine ID
+   *    the previous engine ID or {@code null} if there was no engine ID
    *    cached for the given address.
    * @throws IllegalArgumentException when the local maximum cache size is exceeded.
    * @since 2.3.4
@@ -432,10 +464,10 @@ public class MPv3
    * Gets the engine ID associated with the supplied address from the local
    * storage and fires the corresponding {@link SnmpEngineEvent}.
    * @param address
-   *    the <code>Address</code> of the remote SNMP engine.
+   *    the {@link Address} of the remote SNMP engine.
    * @return
-   *    the engine ID of the remote SNMP engine or <code>null</code> if there
-   *    is no entry for <code>address</code> in the local storage.
+   *    the engine ID of the remote SNMP engine or {@code null} if there
+   *    is no entry for {@code address} in the local storage.
    */
   public OctetString getEngineID(Address address) {
     return engineIDs.get(address);
@@ -445,11 +477,11 @@ public class MPv3
    * Removes an engine ID association from the local storage and fires the
    * corresponding {@link SnmpEngineEvent}.
    * @param address
-   *    the <code>Address</code> of the remote SNMP engine for whose engine ID
+   *    the {@link Address} of the remote SNMP engine for whose engine ID
    *    is to be removed.
    * @return
-   *    the removed engine ID of the remote SNMP engine or <code>null</code> if
-   *    there is no entry for <code>address</code> in the local storage.
+   *    the removed engine ID of the remote SNMP engine or {@code null} if
+   *    there is no entry for {@code address} in the local storage.
    */
   public OctetString removeEngineID(Address address) {
     OctetString engineID = engineIDs.remove(address);
@@ -463,7 +495,7 @@ public class MPv3
 
 
   /**
-   * The <code>CacheEntry</code> class holds state reference information
+   * The {@code CacheEntry} class holds state reference information
    * for the MPv3 message processing model for a single message.
    * @author Frank Fock
    * @version 1.0
@@ -504,7 +536,7 @@ public class MPv3
   }
 
   /**
-   * The <code>Cache</code> stores state reference information for the MPv3.
+   * The {@code Cache} stores state reference information for the MPv3.
    * @author Frank Fock
    * @version 1.0
    */
@@ -545,7 +577,7 @@ public class MPv3
         }
         else if (existing.equalsExceptMsgID(entry)) {
           if (logger.isDebugEnabled()) {
-            logger.debug("Adding previous message IDs "+existing.getMessageIDs()+"  to new entry "+entry);
+            logger.debug("Adding previous message IDs "+existing.getMessageIDs()+" to new entry "+entry);
           }
           entry.addMessageIDs(existing.getMessageIDs());
         }
@@ -565,11 +597,11 @@ public class MPv3
     }
 
     /**
-     * Delete the cache entry with the supplied <code>PduHandle</code>.
+     * Delete the cache entry with the supplied {@link PduHandle}.
      * @param pduHandle
      *    a pduHandle.
      * @return
-     *    <code>true</code> if an entry has been deleted, <code>false</code>
+     *    {@code true} if an entry has been deleted, {@code false}
      *    otherwise.
      */
     public synchronized boolean deleteEntry(PduHandle pduHandle) {
@@ -582,8 +614,8 @@ public class MPv3
      * @param msgID
      *    a message ID.
      * @return
-     *    a <code>CacheEntry</code> instance with the given message ID or
-     *    <code>null</code> if such an entry cannot be found. If a cache entry
+     *    a {@link CacheEntry} instance with the given message ID or
+     *    {@code null} if such an entry cannot be found. If a cache entry
      *   is returned, the same is removed from the cache.
      */
     public synchronized StateReference popEntry(int msgID) {
@@ -604,7 +636,7 @@ public class MPv3
   }
 
   /**
-   * The <code>HeaderData</code> represents the message header information
+   * The {@code HeaderData} represents the message header information
    * of SNMPv3 message.
    * @author Frank Fock
    * @version 1.0
@@ -704,7 +736,7 @@ public class MPv3
   /**
    * Gets unique message ID.
    * @return
-   *    a message ID >= 1 and <= {@link #MAX_MESSAGE_ID}.
+   *    a message ID greater or equal to one and less or equal {@link #MAX_MESSAGE_ID}.
    */
   public synchronized int getNextMessageID() {
     if (currentMsgID >= MAX_MESSAGE_ID) {
@@ -714,16 +746,16 @@ public class MPv3
   }
 
   /**
-   * Gets the security protocols supported by this <code>MPv3</code>.
+   * Gets the security protocols supported by this {@link MPv3}.
    * @return
-   *    return a <code>SecurityProtocols</code>.
+   *    return a {@link SecurityProtocols}.
    */
   public SecurityProtocols getSecurityProtocols() {
     return securityProtocols;
   }
 
   /**
-   * Sets the security protocols for this <code>MPv3</code>.
+   * Sets the security protocols for this {@link MPv3}.
    * @param securityProtocols SecurityProtocols
    */
   public void setSecurityProtocols(SecurityProtocols securityProtocols) {
@@ -909,7 +941,7 @@ public class MPv3
                                     BEROutputStream outgoingMessage) throws
       IOException {
     /** Leave entry in cache or remove it? RFC3414 §3.1.a.1 says discard it*/
-    StateReference cacheEntry = cache.popEntry(stateReference.getMsgID());
+    StateReference cacheEntry = cache.popEntry(stateReference.getMsgID().getID());
     if (cacheEntry == null) {
       return SnmpConstants.SNMP_MP_UNKNOWN_MSGID;
     }
@@ -949,7 +981,7 @@ public class MPv3
     }
     // response message is not reportable
     headerData.setMsgFlags(flags);
-    headerData.setMsgID(stateReference.getMsgID());
+    headerData.setMsgID(stateReference.getMsgID().getID());
     headerData.setMsgMaxSize(maxMessageSize);
     headerData.setSecurityModel(securityModel);
 
@@ -979,19 +1011,17 @@ public class MPv3
     SecurityParameters securityParameters =
         secModel.newSecurityParametersInstance();
 
-    int status =
-        secModel.generateResponseMessage(getID(),
-            globalDataBuffer.array(),
-            maxMessageSize,
-            securityModel,
-            securityEngineID.getValue(),
-            securityName,
-            securityLevel,
-            scopedPDUInput,
-            cacheEntry.getSecurityStateReference(),
-            securityParameters,
-            outgoingMessage);
-    return status;
+    return secModel.generateResponseMessage(getID(),
+        globalDataBuffer.array(),
+        maxMessageSize,
+        securityModel,
+        securityEngineID.getValue(),
+        securityName,
+        securityLevel,
+        scopedPDUInput,
+        cacheEntry.getSecurityStateReference(),
+        securityParameters,
+        outgoingMessage);
   }
 
   /**
@@ -999,7 +1029,7 @@ public class MPv3
    * @param messageDispatcher
    *    Send the message on behalf the supplied MessageDispatcher instance.
    * @param pdu ScopedPDU
-   *    If <code>null</code>, then contextEngineID, contextName, and requestID
+   *    If {@code null}, then contextEngineID, contextName, and requestID
    *    of the report generated will be zero length and zero respective.
    *    Otherwise these values are extracted from the PDU.
    * @param securityLevel
@@ -1423,7 +1453,7 @@ public class MPv3
   /**
    * Sets the security models supported by this MPv3.
    * @param securityModels
-   *    a <code>SecurityModels</code> instance.
+   *    a {@link SecurityModels} instance.
    */
   public void setSecurityModels(SecurityModels securityModels) {
     this.securityModels = securityModels;
@@ -1432,7 +1462,7 @@ public class MPv3
   /**
    * Gets the security models supported by this MPv3.
    * @return
-   *   a <code>SecurityModels</code> instance.
+   *   a {@link SecurityModels} instance.
    */
   public SecurityModels getSecurityModels() {
     return securityModels;
@@ -1475,7 +1505,7 @@ public class MPv3
    * Gets the counter support instance that can be used to register for
    * counter incrementation events.
    * @return
-   *    a <code>CounterSupport</code> instance that is used to fire
+   *    a {@link CounterSupport} instance that is used to fire
    *    {@link CounterEvent}.
    */
   public CounterSupport getCounterSupport() {
@@ -1486,7 +1516,7 @@ public class MPv3
    * Sets the counter support instance. By default, the singleton instance
    * provided by the {@link CounterSupport} instance is used.
    * @param counterSupport
-   *    a <code>CounterSupport</code> subclass instance.
+   *    a {@link CounterSupport} subclass instance.
    */
   public void setCounterSupport(CounterSupport counterSupport) {
     if (counterSupport == null) {
@@ -1499,7 +1529,7 @@ public class MPv3
    * Adds a SNMP engine listener that needs to be informed about changes to
    * the engine ID cache.
    * @param l
-   *    a <code>SnmpEngineListener</code> instance.
+   *    a {@link SnmpEngineListener} instance.
    * @since 1.6
    */
   public synchronized void addSnmpEngineListener(SnmpEngineListener l) {
@@ -1517,7 +1547,7 @@ public class MPv3
   /**
    * Removes a SNMP engine listener.
    * @param l
-   *    a <code>SnmpEngineListener</code> instance.
+   *    a {@link SnmpEngineListener} instance.
    * @since 1.6
    */
   public synchronized void removeSnmpEngineListener(SnmpEngineListener l) {
@@ -1542,7 +1572,7 @@ public class MPv3
   /**
    * Creates a PDU class that is used to parse incoming SNMP messages.
    * @param target
-   *    the <code>target</code> parameter must be ignored.
+   *    the {@code target} parameter must be ignored.
    * @return
    *    a {@link ScopedPDU} instance by default.
    * @since 1.9.1
@@ -1554,9 +1584,37 @@ public class MPv3
   }
 
   /**
+   * Gets the message ID that will be used for the next request to be sent by this message processing model.
+   * @return
+   *    the next message ID used by the MPv3.
+   * @since 2.4.3
+   */
+  public int getNextMsgID() {
+    return currentMsgID;
+  }
+
+  /**
+   * Sets the next message ID. According to RFC3412, the message ID should be unique across reboots:
+   * "Values for msgID SHOULD be generated in a manner that avoids re-use
+   * of any outstanding values.  Doing so provides protection against some
+   * replay attacks.  One possible implementation strategy would be to use
+   * the low-order bits of snmpEngineBoots [RFC3411] as the high-order
+   * portion of the msgID value and a monotonically increasing integer for
+   * the low-order portion of msgID."
+   *
+   * @param nextMsgID
+   *    a message ID that has not been used by this SNMP entity yet (preferably also not
+   *    used during previous runs).
+   * @since 2.4.3
+   */
+  public void setCurrentMsgID(int nextMsgID) {
+    this.currentMsgID = nextMsgID;
+  }
+
+  /**
    * Fires a SNMP engine event the registered listeners.
    * @param engineEvent
-   *    the <code>SnmpEngineEvent</code> instance to fire.
+   *    the {@code SnmpEngineEvent} instance to fire.
    * @since 1.6
    */
   protected void fireEngineChanged(SnmpEngineEvent engineEvent) {
@@ -1569,7 +1627,7 @@ public class MPv3
   }
 
   /**
-   * The <code>EngineIdCacheFactory</code> creates an engine ID cache with upper limit.
+   * The {@code EngineIdCacheFactory} creates an engine ID cache with upper limit.
    */
   public interface EngineIdCacheFactory {
     /**

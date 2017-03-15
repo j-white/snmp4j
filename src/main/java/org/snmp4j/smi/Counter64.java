@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - Counter64.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ import org.snmp4j.asn1.BER;
 import org.snmp4j.asn1.BERInputStream;
 
 /**
- * The <code>Counter64</code> class represents a 64bit unsigned integer type.
+ * The {@code Counter64} class represents a 64bit unsigned integer type.
  * It is used for monotonically increasing values that wrap around at
  * 2^64-1 (18446744073709551615).
- * <p/>
+ *
  * The unsigned 64bit value is represented by a signed 64bit long value
  * internally.
  *

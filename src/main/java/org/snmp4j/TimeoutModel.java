@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - TimeoutModel.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -19,12 +19,10 @@
   _##########################################################################*/
 
 
-
-
 package org.snmp4j;
 
 /**
- * The <code>TimeoutModel</code> is the common interface for all models
+ * The {@code TimeoutModel} is the common interface for all models
  * of timing out a SNMP request. The default model is a linear model, thus
  * each retry has the same delay as specified by the {@link Target#getTimeout()}
  * value.
@@ -37,7 +35,7 @@ public interface TimeoutModel {
 
   /**
    * Gets the timeout for the specified retry (a zero value for
-   * <code>retryCount</code> specifies the first request).
+   * {@code retryCount} specifies the first request).
    * @param retryCount
    *    the number of retries already performed for the target.
    * @param totalNumberOfRetries
@@ -54,8 +52,8 @@ public interface TimeoutModel {
    * Gets the timeout for all retries, which is defined as the sum of
    * {@link #getRetryTimeout(int retryCount, int totalNumberOfRetries,
    * long targetTimeout)}
-   * for all <code>retryCount</code> in
-   * <code>0 <= retryCount < totalNumberOfRetries</code>.
+   * for all {@code retryCount} in
+   * {@code 0 &lz;= retryCount &lt; totalNumberOfRetries}.
    *
    * @param totalNumberOfRetries
    *    the total number of retries configured for the target.

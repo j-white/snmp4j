@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - SecurityParameters.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ package org.snmp4j.security;
 import org.snmp4j.asn1.BERSerializable;
 
 /**
- * The <code>SecurityParameters</code> interface represents the security
+ * The {@code SecurityParameters} interface represents the security
  * parameters in a SNMPv3 message.
  *
  * @author Frank Fock
@@ -48,13 +48,13 @@ public interface SecurityParameters extends BERSerializable {
    * Sets the position of the first byte (counted from zero) of the security
    * parameters in the whole SNMP message.
    * @param pos
-   *    an integer value >= 0.
+   *    an integer value greater or equal than zero.
    */
   void setSecurityParametersPosition(int pos);
 
   /**
    * Gets the maximum length of the BER encoded representation of this
-   * <code>SecurityParameters</code> instance.
+   * {@code SecurityParameters} instance.
    * @param securityLevel
    *    the security level to be used.
    * @return

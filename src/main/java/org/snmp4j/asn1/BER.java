@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - BER.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ import java.io.IOException;
 /**
  * The BER class provides utility methods for the BER encoding and decoding.
  *
- * @author Jochen Katz & Frank Fock
+ * @author Frank Fock
+ * @author Jochen Katz
  * @version 1.7.4
  */
 public class BER {
@@ -77,7 +78,7 @@ public class BER {
   private static boolean checkValueLength = true;
 
   /**
-   * The <code>MutableByte</code> class serves for exchanging type information
+   * The {@code MutableByte} class serves for exchanging type information
    * from the various decode* methods.
    *
    * @author Frank Fock
@@ -105,12 +106,13 @@ public class BER {
    * Encodes an ASN.1 header for an object with the ID and
    * length specified.
    * @param os
-   *    an <code>OutputStream</code> to which the header is encoded.
+   *    an {@code OutputStream} to which the header is encoded.
    * @param type
-   *    the type of the ASN.1 object. Must be < 30, i.e. no extension octets.
+   *    the type of the ASN.1 object. Must be &lt; 30, i.e. no extension octets.
    * @param length
    *    the length of the object. The maximum length is 0xFFFFFFFF;
    * @throws IOException
+   *   if the output stream fails to store the encoded header.
    */
   public static void encodeHeader(OutputStream os, int type, int length)
       throws IOException
@@ -123,14 +125,15 @@ public class BER {
    * Encodes an ASN.1 header for an object with the ID and
    * length specified with a fixed length of the encoded length as supplied.
    * @param os
-   *    an <code>OutputStream</code> to which the header is encoded.
+   *    an {@code OutputStream} to which the header is encoded.
    * @param type
-   *    the type of the ASN.1 object. Must be < 30, i.e. no extension octets.
+   *    the type of the ASN.1 object. Must be &lt; 30, i.e. no extension octets.
    * @param length
    *    the length of the object. The maximum length is 0xFFFFFFFF;
    * @param numBytesLength
    *    the number of bytes used to encode the length of the length.
    * @throws IOException
+   *   if the output stream fails to store the encoded header.
    */
   public static void encodeHeader(OutputStream os, int type, int length,
                                   int numBytesLength)
@@ -146,7 +149,7 @@ public class BER {
    * @param length
    *    Length to encode
    * @return
-   *    the count of bytes needed to encode the value <code>length</code>
+   *    the count of bytes needed to encode the value {@code length}
    */
   public static int getBERLengthOfLength(int length) {
     if (length < 0) {
@@ -170,10 +173,11 @@ public class BER {
   /**
    * Encodes the length of an ASN.1 object.
    * @param os
-   *   an <code>OutputStream</code> to which the length is encoded.
+   *   an {@code OutputStream} to which the length is encoded.
    * @param length
    *    the length of the object. The maximum length is 0xFFFFFFFF;
    * @throws IOException
+   *   if the output stream fails to store the encoded length.
    */
   public static void encodeLength(OutputStream os, int length)
       throws IOException
@@ -215,13 +219,14 @@ public class BER {
   /**
    * Encodes the length of an ASN.1 object.
    * @param os
-   *   an <code>OutputStream</code> to which the length is encoded.
+   *   an {@code OutputStream} to which the length is encoded.
    * @param length
    *    the length of the object. The maximum length is 0xFFFFFFFF;
    * @param numLengthBytes
    *    the number of bytes to be used to encode the length using the long
    *    form.
    * @throws IOException
+   *   if the output stream fails to store the encoded length.
    */
   public static void encodeLength(OutputStream os, int length,
                                   int numLengthBytes)
@@ -236,14 +241,15 @@ public class BER {
   /**
    * Encode a signed integer.
    * @param os
-   *    an <code>OutputStream</code> to which the length is encoded.
+   *    an {@code OutputStream} to which the length is encoded.
    * @param type
    *    the tag type for the integer (typically 0x02)
    * @param value
    *    the integer value to encode.
    * @throws IOException
+   *   if the output stream fails to store the encoded integer.
    */
-  public static final void encodeInteger(OutputStream os, byte type, int value)
+  public static void encodeInteger(OutputStream os, byte type, int value)
       throws IOException
   {
     int integer = value;
@@ -276,12 +282,13 @@ public class BER {
    * Encode an unsigned integer.
    * ASN.1 integer ::= 0x02 asnlength byte {byte}*
    * @param os
-   *    an <code>OutputStream</code> to which the length is encoded.
+   *    an {@code OutputStream} to which the length is encoded.
    * @param type
    *    the tag type for the integer (typically 0x02)
    * @param value
    *    the integer value to encode.
    * @throws IOException
+   *   if the output stream fails to store the encoded value.
    */
   public static void encodeUnsignedInteger(OutputStream os, byte type, long value)
       throws IOException
@@ -324,12 +331,13 @@ public class BER {
   /**
    * Encode an ASN.1 octet string filled with the supplied input string.
    * @param os
-   *    an <code>OutputStream</code> to which the length is encoded.
+   *    an {@code OutputStream} to which the length is encoded.
    * @param type
    *    the tag type for the integer (typically 0x02)
    * @param string
-   *    the <code>byte</code> array containing the octet string value.
+   *    the {@code byte} array containing the octet string value.
    * @throws IOException
+   *   if the output stream fails to store the encoded value.
    */
   public static void encodeString(OutputStream os, byte type, byte[] string)
       throws IOException
@@ -347,16 +355,17 @@ public class BER {
 
   /**
    * Encode an ASN.1 header for a sequence with the ID and length specified.
-   * This only works on data types < 30, i.e. no extension octets.
+   * This only works on data types &lt; 30, i.e. no extension octets.
    * The maximum length is 0xFFFF;
    *
    * @param os
-   *    an <code>OutputStream</code> to which the length is encoded.
+   *    an {@code OutputStream} to which the length is encoded.
    * @param type
    *    the tag type for the integer (typically 0x02)
    * @param length
    *    the length of the sequence to encode.
    * @throws IOException
+   *   if the output stream fails to store the encoded value.
    */
   public static void encodeSequence(OutputStream os, byte type, int length)
       throws IOException
@@ -408,12 +417,13 @@ public class BER {
   * Encode an ASN.1 oid filled with the supplied oid value.
   *
   * @param os
-  *    an <code>OutputStream</code> to which the length is encoded.
+  *    an {@code OutputStream} to which the length is encoded.
   * @param type
   *    the tag type for the integer (typically 0x06)
   * @param oid
-  *    the <code>int</code> array containing the OID value.
+  *    the {@code int} array containing the OID value.
   * @throws IOException
+   *   if the output stream fails to store the encoded value.
   */
   public static void encodeOID(OutputStream os, byte type, int[] oid)
       throws IOException
@@ -509,10 +519,12 @@ public class BER {
   /**
    * Decodes a ASN.1 length.
    * @param is
-   *    an <code>InputStream</code>
+   *    an {@code InputStream}
    * @return
    *    the decoded length.
    * @throws IOException
+   *   if the input stream contains an invalid BER encoding or an IO
+   *   exception occurred while reading from the stream.
    */
   public static int decodeLength(BERInputStream is)
       throws IOException
@@ -523,12 +535,14 @@ public class BER {
   /**
    * Decodes a ASN.1 length.
    * @param is
-   *    an <code>InputStream</code>
+   *    an {@code InputStream}
    * @param checkLength
-   *    if <code>false</code> length check is always suppressed.
+   *    if {@code false} length check is always suppressed.
    * @return
    *    the decoded length.
    * @throws IOException
+   *   if the input stream contains an invalid BER encoding or an IO
+   *   exception occurred while reading from the stream.
    */
   public static int decodeLength(BERInputStream is, boolean checkLength)
       throws IOException
@@ -555,8 +569,8 @@ public class BER {
     else { /* short asnlength */
       length = lengthbyte & 0xFF;
     }
-    /**
-     * If activated we do a length check here: length > is.available() -> throw
+    /*
+     * If activated we do a length check here: length > is.available() then throw
      * exception
      */
     if (checkLength) {
@@ -572,7 +586,7 @@ public class BER {
    *   "data".  On exit, it is returned as the number of valid bytes
    *   in this object following the id and length.
    *
-   *  This only works on data types < 30, i.e. no extension octets.
+   *  This only works on data types &lt; 30, i.e. no extension octets.
    *  The maximum length is 0xFFFF;
    *
    * @param is
@@ -581,16 +595,18 @@ public class BER {
    *   returns the type of the object at the current position in the input
    *   stream.
    * @param checkLength
-   *    if <code>false</code> length check is always suppressed.
+   *    if {@code false} length check is always suppressed.
    * @return
    *   the decoded length of the object.
    * @throws IOException
+   *   if the input stream contains an invalid BER encoding or an IO
+   *   exception occurred while reading from the stream.
    */
   public static int decodeHeader(BERInputStream is, MutableByte type,
                                  boolean checkLength)
       throws IOException
   {
-    /* this only works on data types < 30, i.e. no extension octets */
+    /* this only works on data types &lt; 30, i.e. no extension octets */
     byte t = (byte)is.read();
     if ((t & ASN_EXTENSION_ID) == ASN_EXTENSION_ID) {
       throw new IOException("Cannot process extension IDs"+
@@ -607,7 +623,7 @@ public class BER {
    *   "data".  On exit, it is returned as the number of valid bytes
    *   in this object following the id and length.
    *
-   *  This only works on data types < 30, i.e. no extension octets.
+   *  This only works on data types &lt; 30, i.e. no extension octets.
    *  The maximum length is 0xFFFF;
    *
    * @param is
@@ -618,6 +634,8 @@ public class BER {
    * @return
    *   the decoded length of the object.
    * @throws IOException
+   *   if the input stream contains an invalid BER encoding or an IO
+   *   exception occurred while reading from the stream.
    */
   public static int decodeHeader(BERInputStream is, MutableByte type)
       throws IOException
@@ -867,7 +885,7 @@ public class BER {
   /**
    * Gets the SEQUENCE length checking mode.
    * @return
-   *    <code>true</code> if the length of a parsed SEQUENCE should be checked
+   *    {@code true} if the length of a parsed SEQUENCE should be checked
    *    against the real length of the objects parsed.
    */
   public static boolean isCheckSequenceLength() {

@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - LogLevel.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -65,8 +65,8 @@ public class LogLevel {
    *    one of the level strings "OFF", "ALL", "TRACE", "DEBUG", "INFO", "WARN",
    *    "INFO", "ERROR", and "FATAL".
    * @return
-   *    a number > 0 if the level string could be converted into a level,
-   *    0 otherwise.
+   *    a number greater than zero if the level string could be converted into a level,
+   *    zero otherwise.
    */
   public static int levelFromString(String levelString) {
     int ind = -1;
@@ -80,12 +80,12 @@ public class LogLevel {
   }
 
   /**
-   * Returns a <code>LogLevel</code> object for the specified level string.
+   * Returns a {@code LogLevel} object for the specified level string.
    * @param levelString
    *    one of the level strings "OFF", "ALL", "TRACE", "DEBUG", "INFO", "WARN",
    *    "ERROR", and "FATAL".
    * @return
-   *    one of the <code>LogLevel</code> constants defined by this class.
+   *    one of the {@code LogLevel} constants defined by this class.
    * @since 1.7.2
    */
   public static LogLevel toLevel(String levelString) {

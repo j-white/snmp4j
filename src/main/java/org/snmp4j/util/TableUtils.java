@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - TableUtils.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -381,7 +381,6 @@ public class TableUtils extends AbstractSnmpUtility {
         }
       }
       lastSent = new Vector<OID>(sz + 1);
-      int skip = 0;
       List<Integer> sentColumns = new ArrayList<Integer>(sz);
       int chunkSize = 0;
       for (int i = sent; i < sent + sz; i++) {
@@ -537,13 +536,14 @@ public class TableUtils extends AbstractSnmpUtility {
               return;
             }
           }
-          if (!sendNextChunk()) {
+          boolean sentChunk;
+          if (!(sentChunk = sendNextChunk())) {
             if (anyMatch) {
               sent = 0;
               anyMatch = false;
-              sendNextChunk();
+              sentChunk = sendNextChunk();
             }
-            else {
+            if (!sentChunk) {
               emptyCache();
               finished = true;
               listener.finished(new TableEvent(this, userObject));

@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - AuthMD5.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@
   _##########################################################################*/
 package org.snmp4j.security;
 
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.OID;
 
 /**
  * The AuthMD5 class implements the MD5 authentication protocol.
  *
- * @author Jochen Katz & Frank Fock
+ * @author Frank Fock
+ * @author Jochen Katz
  * @version 1.0
  */
 public class AuthMD5
@@ -32,7 +34,7 @@ public class AuthMD5
 
   private static final long serialVersionUID = -5972274836195217352L;
 
-  public static final OID ID = new OID("1.3.6.1.6.3.10.1.1.2");
+  public static final OID ID = new OID(SnmpConstants.usmHMACMD5AuthProtocol);
 
   public AuthMD5() {
     super("MD5", 16);

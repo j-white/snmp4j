@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - AuthSHA.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
   _##########################################################################*/
 package org.snmp4j.security;
 
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.OID;
 
 /**
@@ -32,7 +33,7 @@ public class AuthSHA
 
   private static final long serialVersionUID = 2355896418236397919L;
 
-  public static final OID ID = new OID("1.3.6.1.6.3.10.1.1.3");
+  public static final OID ID = new OID(SnmpConstants.usmHMACSHAAuthProtocol);
 
   public AuthSHA() {
     super("SHA-1", 20);

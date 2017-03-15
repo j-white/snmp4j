@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - Priv3DES.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -19,12 +19,17 @@
   _##########################################################################*/
 package org.snmp4j.security;
 
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.OID;
 import org.snmp4j.log.*;
+
+import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.Cipher;
+
 import org.snmp4j.smi.OctetString;
+
+import java.security.NoSuchAlgorithmException;
 
 /**
  * Privacy protocol class for Triple DES (DESEDE).
@@ -37,21 +42,29 @@ import org.snmp4j.smi.OctetString;
  * @version 2.2.2
  * @since 1.9
  */
-public class Priv3DES implements PrivacyProtocol {
+public class Priv3DES extends PrivacyGeneric {
 
   /**
    * Unique ID of this privacy protocol.
    */
-  public static final OID ID = new OID("1.3.6.1.6.3.10.1.2.3");
+  public static final OID ID = new OID(SnmpConstants.usm3DESEDEPrivProtocol);
 
+  private static final String PROTOCOL_ID = "DESede/CBC/NoPadding";
+  private static final String PROTOCOL_CLASS = "DESede";
   private static final int DECRYPT_PARAMS_LENGTH = 8;
+  private static final int INIT_VECTOR_LENGTH = 8;
+  private static final int INPUT_KEY_LENGTH = 32;
+  private static final int KEY_LENGTH = 24;
   protected Salt salt;
-  protected CipherPool cipherPool;
 
   private static final LogAdapter logger = LogFactory.getLogger(Priv3DES.class);
 
   public Priv3DES()
   {
+    super.initVectorLength = INIT_VECTOR_LENGTH;
+    super.protocolId = PROTOCOL_ID;
+    super.protocolClass = PROTOCOL_CLASS;
+    super.keyBytes = KEY_LENGTH;
     this.salt = Salt.getInstance();
     cipherPool = new CipherPool();
   }
@@ -65,7 +78,7 @@ public class Priv3DES implements PrivacyProtocol {
                         DecryptParams decryptParams) {
     int mySalt = (int)salt.getNext();
 
-    if (encryptionKey.length < 32) {
+    if (encryptionKey.length < INPUT_KEY_LENGTH) {
       logger.error("Wrong Key length: need at least 32 bytes, is " +
                    encryptionKey.length +
                    " bytes.");
@@ -89,46 +102,22 @@ public class Priv3DES implements PrivacyProtocol {
       decryptParams.array[7 - i] = (byte) (0xFF & (mySalt >> (8 * i)));
     }
 
-    byte[] iv = new byte[8];
+    byte[] iv = new byte[INIT_VECTOR_LENGTH];
 
     // last eight bytes of key xored with decrypt params are used as iv
     if (logger.isDebugEnabled()) {
       logger.debug("Preparing iv for encryption.");
     }
     for (int i = 0; i < 8; ++i) {
-      iv[i] = (byte) (encryptionKey[24 + i] ^ decryptParams.array[i]);
+      iv[i] = (byte) (encryptionKey[KEY_LENGTH + i] ^ decryptParams.array[i]);
     }
 
     byte[] encryptedData = null;
 
     try {
       // now do CBC encryption of the plaintext
-      Cipher alg = cipherPool.reuseCipher();
-      if (alg == null) {
-        alg = Cipher.getInstance("DESede/CBC/NoPadding");
-      }
-      SecretKeySpec key =
-          new SecretKeySpec(encryptionKey, 0, 24, "DESede");
-      IvParameterSpec ivSpec = new IvParameterSpec(iv);
-      alg.init(Cipher.ENCRYPT_MODE, key, ivSpec);
-
-      // allocate space for encrypted text
-      if (length % 8 == 0) {
-        encryptedData = alg.doFinal(unencryptedData, offset, length);
-      }
-      else {
-        if (logger.isDebugEnabled()) {
-          logger.debug("Using padding.");
-        }
-
-        encryptedData = new byte[8 * ( (length / 8) + 1)];
-        byte[] tmp = new byte[8];
-
-        int encryptedLength = alg.update(unencryptedData, offset, length,
-                                         encryptedData);
-        encryptedLength += alg.doFinal(tmp, 0, 8 - (length % 8),
-                                       encryptedData, encryptedLength);
-      }
+      Cipher alg = doInit(encryptionKey, iv);
+      encryptedData = doFinalWithPadding(unencryptedData, offset, length, alg);
       cipherPool.offerCipher(alg);
     }
     catch (Exception e) {
@@ -159,7 +148,7 @@ public class Priv3DES implements PrivacyProtocol {
                                          "params has not length 8 ("
                                          + decryptParams.length + ").");
     }
-    if (decryptionKey.length < 32) {
+    if (decryptionKey.length < INPUT_KEY_LENGTH) {
       logger.error("Wrong Key length: need at least 32 bytes, is " +
                    decryptionKey.length +
                    " bytes.");
@@ -172,30 +161,10 @@ public class Priv3DES implements PrivacyProtocol {
 
     // last eight bytes of key xored with decrypt params are used as iv
     for (int i = 0; i < 8; ++i) {
-      iv[i] = (byte) (decryptionKey[24 + i] ^ decryptParams.array[i]);
+      iv[i] = (byte) (decryptionKey[KEY_LENGTH + i] ^ decryptParams.array[i]);
     }
 
-    byte[] decryptedData = null;
-    try {
-      // now do CBC decryption of the crypted data
-      Cipher alg = cipherPool.reuseCipher();
-      if (alg == null) {
-        alg =  Cipher.getInstance("DESede/CBC/NoPadding");
-      }
-      SecretKeySpec key =
-          new SecretKeySpec(decryptionKey, 0, 24, "DESede");
-      IvParameterSpec ivSpec = new IvParameterSpec(iv);
-      alg.init(Cipher.DECRYPT_MODE, key, ivSpec);
-      decryptedData = alg.doFinal(cryptedData, offset, length);
-      cipherPool.offerCipher(alg);
-    }
-    catch (Exception e) {
-      logger.error(e);
-      if (logger.isDebugEnabled()) {
-        e.printStackTrace();
-      }
-    }
-
+    byte[] decryptedData = doDecrypt(cryptedData, offset, length, decryptionKey, iv);
     return decryptedData;
   }
 
@@ -216,7 +185,7 @@ public class Priv3DES implements PrivacyProtocol {
   }
 
   public int getMinKeyLength() {
-    return 32;
+    return INPUT_KEY_LENGTH;
   }
 
   public int getDecryptParamsLength() {

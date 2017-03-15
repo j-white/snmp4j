@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - BERSerializable.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ import java.io.*;
  * any data type class that needs to be serialized using the Basic Encoding
  * Rules (BER) that provides enconding rules for ASN.1 data types.
  *
- * @author Jochen Katz & Frank Fock
+ * @author Frank Fock
+ * @author Jochen Katz
  * @version 1.0
  */
 public interface BERSerializable /*extends Serializable*/ {

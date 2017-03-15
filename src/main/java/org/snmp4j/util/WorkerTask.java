@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - WorkerTask.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 package org.snmp4j.util;
 
 /**
- * This models a <code>WorkerTask</code> instance that would be executed by a
+ * This models a {@code WorkerTask} instance that would be executed by a
  * {@link WorkerPool} upon submission.
  *
  * @author Frank Fock
@@ -30,13 +30,15 @@ package org.snmp4j.util;
 public interface WorkerTask extends Runnable {
 
   /**
-   * The <code>WorkerPool</code> might call this method to hint the active
-   * <code>WorkTask</code> instance to complete execution as soon as possible.
+   * The {@code WorkerPool} might call this method to hint the active
+   * {@code WorkTask} instance to complete execution as soon as possible.
    */
   void terminate();
 
   /**
    * Waits until this task has been finished.
+   * @throws InterruptedException
+   *    if the join has been interrupted by another thread.
    */
   void join() throws InterruptedException;
 

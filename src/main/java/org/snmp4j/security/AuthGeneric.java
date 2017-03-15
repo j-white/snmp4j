@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - AuthGeneric.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ import org.snmp4j.smi.OctetString;
  * The abstract class AuthGeneric implements common operations for
  * SNMP authentication protocols, such as MD5 and SHA.
  *
- * @author Jochen Katz & Frank Fock
+ * @author Frank Fock
+ * @author Jochen Katz
  * @version 1.0
  */
 
@@ -35,10 +36,10 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
 
   private static final LogAdapter logger = LogFactory.getLogger(AuthGeneric.class);
 
-  private static int HMAC_BLOCK_SIZE = 64;
+  public static int HMAC_BLOCK_SIZE = 64;
   private static int DEFAULT_AUTHENTICATION_CODE_LENGTH = 12;
 
-  private final int hmacBlockSize;
+  protected int hmacBlockSize;
   private int authenticationCodeLength;
   private final int digestLength;
   private final String protoName;
@@ -76,6 +77,24 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
     this.authenticationCodeLength = authenticationCodeLength;
   }
 
+  /**
+   * Creates an authentication protocol with the specified name (ID) and digest length and using the
+   * {@link #DEFAULT_AUTHENTICATION_CODE_LENGTH} default code length.
+   * @param protoName
+   *   the name (ID) of the authentication protocol. Only names that are supported by the used
+   *   security provider can be used.
+   * @param digestLength
+   *   the digest length.
+   * @param authenticationCodeLength
+   *   the length of the hash output (i.e., the authentication code length).
+   * @param hmacBlockSize
+   *   the HMAC block size of the authentication protocol.
+   * @since 2.5.4
+   */
+  public AuthGeneric(String protoName, int digestLength, int authenticationCodeLength, int hmacBlockSize) {
+    this(protoName, digestLength, authenticationCodeLength);
+    this.hmacBlockSize = hmacBlockSize;
+  }
 
   /**
    * Gets the length of the message digest used by this authentication protocol.
@@ -113,6 +132,17 @@ public abstract class AuthGeneric implements AuthenticationProtocol {
     }
     // not needed the first time: md.reset();
     return md;
+  }
+
+  @Override
+  public boolean isSupported() {
+    try {
+      MessageDigest.getInstance(protoName);
+      return true;
+    }
+    catch (java.security.NoSuchAlgorithmException e) {
+      return false;
+    }
   }
 
   public boolean authenticate(byte[] authenticationKey,

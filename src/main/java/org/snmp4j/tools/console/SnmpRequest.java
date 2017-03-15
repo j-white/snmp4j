@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - SnmpRequest.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -325,8 +325,9 @@ public class SnmpRequest implements CommandResponder, PDUFactory {
     // Could save some CPU cycles:
     // transport.setAsyncMsgProcessingSupported(false);
     Snmp snmp =  new Snmp(transport);
-    ((MPv3)snmp.getMessageProcessingModel(MPv3.ID)).
-        setLocalEngineID(localEngineID.getValue());
+    MPv3 mpv3 = (MPv3)snmp.getMessageProcessingModel(MPv3.ID);
+    mpv3.setLocalEngineID(localEngineID.getValue());
+    mpv3.setCurrentMsgID(MPv3.randomMsgID(engineBootCount));
 
     if (version == SnmpConstants.version3) {
       USM usm = new USM(SecurityProtocols.getInstance(),

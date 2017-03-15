@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - PrivDES.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -21,10 +21,14 @@ package org.snmp4j.security;
 
 import org.snmp4j.smi.OID;
 import org.snmp4j.log.*;
+
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.Cipher;
 import org.snmp4j.smi.OctetString;
+
+import java.security.NoSuchAlgorithmException;
 
 /**
  * Privacy protocol class for DES.
@@ -34,10 +38,9 @@ import org.snmp4j.smi.OctetString;
  * for SNMPv3".
  *
  * @author Jochen Katz
- * @version 1.9
+ * @version 2.5.0
  */
-public class PrivDES
-    implements PrivacyProtocol {
+public class PrivDES extends PrivacyGeneric {
 
   private static final long serialVersionUID = 2526070176429255416L;
 
@@ -46,14 +49,22 @@ public class PrivDES
    */
   public static final OID ID = new OID("1.3.6.1.6.3.10.1.2.2");
 
+  private static final String PROTOCOL_ID = "DES/CBC/NoPadding";
+  private static final String PROTOCOL_CLASS = "DES";
   private static final int DECRYPT_PARAMS_LENGTH = 8;
+  private static final int INIT_VECTOR_LENGTH = 8;
+  private static final int INPUT_KEY_LENGTH = 16;
+  private static final int KEY_LENGTH = 8;
   protected Salt salt;
-  protected CipherPool cipherPool;
 
   private static final LogAdapter logger = LogFactory.getLogger(PrivDES.class);
 
   public PrivDES()
   {
+    super.initVectorLength = INIT_VECTOR_LENGTH;
+    super.protocolId = PROTOCOL_ID;
+    super.protocolClass = PROTOCOL_CLASS;
+    super.keyBytes = KEY_LENGTH;
     this.salt = Salt.getInstance();
     cipherPool = new CipherPool();
   }
@@ -67,7 +78,7 @@ public class PrivDES
                         DecryptParams decryptParams) {
     int mySalt = (int)salt.getNext();
 
-    if (encryptionKey.length < 16) {
+    if (encryptionKey.length < INPUT_KEY_LENGTH) {
       logger.error("Wrong Key length: need at least 16 bytes, is " +
                    encryptionKey.length +
                    " bytes.");
@@ -105,31 +116,8 @@ public class PrivDES
 
     try {
       // now do CBC encryption of the plaintext
-      Cipher alg = cipherPool.reuseCipher();
-      if (alg == null) {
-        alg = Cipher.getInstance("DES/CBC/NoPadding");
-      }
-      SecretKeySpec key =
-          new SecretKeySpec(encryptionKey, 0, 8, "DES");
-      IvParameterSpec ivSpec = new IvParameterSpec(iv);
-      alg.init(Cipher.ENCRYPT_MODE, key, ivSpec);
-      // allocate space for encrypted text
-      if (length % 8 == 0) {
-        encryptedData = alg.doFinal(unencryptedData, offset, length);
-      }
-      else {
-        if (logger.isDebugEnabled()) {
-          logger.debug("Using padding.");
-        }
-
-        encryptedData = new byte[8 * ( (length / 8) + 1)];
-        byte[] tmp = new byte[8];
-
-        int encryptedLength = alg.update(unencryptedData, offset, length,
-                                         encryptedData);
-        encryptedLength += alg.doFinal(tmp, 0, 8 - (length % 8),
-                                       encryptedData, encryptedLength);
-      }
+      Cipher alg = doInit(encryptionKey, iv);
+      encryptedData = doFinalWithPadding(unencryptedData, offset, length, alg);
       cipherPool.offerCipher(alg);
     }
     catch (Exception e) {
@@ -179,7 +167,7 @@ public class PrivDES
           ") is not multiple of 8 or decrypt params has not length 8 ("
           + decryptParams.length + ").");
     }
-    if (decryptionKey.length < 16) {
+    if (decryptionKey.length < INPUT_KEY_LENGTH) {
       logger.error("Wrong Key length: need at least 16 bytes, is " +
                    decryptionKey.length +
                    " bytes.");
@@ -195,27 +183,7 @@ public class PrivDES
       iv[i] = (byte) (decryptionKey[8 + i] ^ decryptParams.array[i]);
     }
 
-    byte[] decryptedData = null;
-    try {
-      // now do CBC decryption of the crypted data
-      Cipher alg = cipherPool.reuseCipher();
-      if (alg == null) {
-        alg = Cipher.getInstance("DES/CBC/NoPadding");
-      }
-      SecretKeySpec key =
-          new SecretKeySpec(decryptionKey, 0, 8, "DES");
-      IvParameterSpec ivSpec = new IvParameterSpec(iv);
-      alg.init(Cipher.DECRYPT_MODE, key, ivSpec);
-      decryptedData = alg.doFinal(cryptedData, offset, length);
-      cipherPool.offerCipher(alg);
-    }
-    catch (Exception e) {
-      logger.error(e);
-      if (logger.isDebugEnabled()) {
-        e.printStackTrace();
-      }
-    }
-
+    byte[] decryptedData = doDecrypt(cryptedData, offset, length, decryptionKey, iv);
     return decryptedData;
   }
 
@@ -226,6 +194,22 @@ public class PrivDES
    */
   public OID getID() {
     return (OID) ID.clone();
+  }
+
+  @Override
+  public boolean isSupported() {
+    Cipher alg;
+    try {
+      alg = cipherPool.reuseCipher();
+      if (alg == null) {
+        Cipher.getInstance("DESede/CBC/NoPadding");
+      }
+      return true;
+    } catch (NoSuchPaddingException e) {
+      return false;
+    } catch (NoSuchAlgorithmException e) {
+      return false;
+    }
   }
 
   public int getEncryptedLength(int scopedPDULength) {
@@ -252,5 +236,6 @@ public class PrivDES
                                AuthenticationProtocol authProtocol) {
     return shortKey;
   }
+
 
 }

@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - SnmpConstants.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ package org.snmp4j.mp;
 import org.snmp4j.smi.OID;
 
 /**
- * The <code>SnmpConstants</code> class holds constants, ObjectIDs and
+ * The {@code SnmpConstants} class holds constants, ObjectIDs and
  * Message strings used within SNMP4J.
  *
  * @author Frank Fock
@@ -126,6 +126,32 @@ public final class SnmpConstants {
   public static final int SNMP_MD_UNSUPPORTED_ADDRESS_CLASS = 1703;
   public static final int SNMP_MD_UNSUPPORTED_SNMP_VERSION  = 1704;
 
+
+  // USM security protocol OIDs
+  public static final OID usmNoAuthProtocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,1,1});
+  public static final OID usmHMACMD5AuthProtocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,1,2});
+  public static final OID usmHMACSHAAuthProtocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,1,3});
+  public static final OID usmNoPrivProtocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,2,1});
+  public static final OID usmDESPrivProtocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,2,2});
+  public static final OID usm3DESEDEPrivProtocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,2,3});
+  public static final OID usmAesCfb128Protocol =
+      new OID(new int[]{1,3,6,1,6,3,10,1,2,4});
+
+  // SNMP4J security protocol OIDs
+  public static final OID oosnmpUsmAesCfb192Protocol =
+      new OID(new int[]{1,3,6,1,4,1,4976,2,2,1,1,1});
+  public static final OID oosnmpUsmAesCfb256Protocol =
+      new OID(new int[]{1,3,6,1,4,1,4976,2,2,1,1,2});
+  public static final OID oosnmpUsmAesCfb192ProtocolWith3DESKeyExtension =
+      new OID(new int[]{1,3,6,1,4,1,4976,2,2,1,2,1});
+  public static final OID oosnmpUsmAesCfb256ProtocolWith3DESKeyExtension =
+      new OID(new int[]{1,3,6,1,4,1,4976,2,2,1,2,2});
 
   public static final OID usmStatsUnsupportedSecLevels =
       new OID(new int[]{1, 3, 6, 1, 6, 3, 15, 1, 1, 1, 0 });
@@ -290,6 +316,16 @@ public final class SnmpConstants {
    */
   public static final OID snmp4jStatsRequestWaitTime =
       new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,3,0 });
+  /**
+   * The number of milliseconds a successful request took
+   * from sending the request to receiving the corresponding response
+   * with the same msgID. Note, for community based SNMP version, only
+   * the same request ID is used to correlate request and response.
+   * Thus, only for SNMPv3 the counter can distinguish which retry
+   * has been successfully responded.
+   */
+  public static final OID snmp4jStatsRequestRuntime =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,4,0 });
 
   /**
    * The total number of requests that timed out for this target (Counter32).
@@ -310,6 +346,16 @@ public final class SnmpConstants {
    */
   public static final OID snmp4jStatsReqTableWaitTime =
       new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,10,3,1,6 });
+  /**
+   * The number of milliseconds a successful request took
+   * from sending the request to receiving the corresponding response
+   * with the same msgID for this target.
+   * Note, for community based SNMP version, only the same request ID
+   * is used to correlate request and response. Thus, only for SNMPv3
+   * the counter can distinguish which retry has been successfully responded.
+   */
+  public static final OID snmp4jStatsReqTableRuntime =
+      new OID(new int[] { 1,3,6,1,4,1,4976,10,1,1,4,1,1,10,3,1,7 });
 
 
   /**
@@ -447,7 +493,7 @@ public final class SnmpConstants {
    * @param oid
    *    an OID.
    * @return
-   *    -1 if the supplied OID is not a generic trap, otherwise a value >= 0
+   *    -1 if the supplied OID is not a generic trap, otherwise a zero or positive value
    *    will be returned that denotes the generic trap ID.
    */
   public static int getGenericTrapID(OID oid) {

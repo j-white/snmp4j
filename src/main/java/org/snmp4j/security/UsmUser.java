@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - UsmUser.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
   _##########################################################################*/
 package org.snmp4j.security;
 
+import org.snmp4j.SNMP4JSettings;
 import org.snmp4j.User;
 import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.OID;
@@ -29,11 +30,11 @@ import org.snmp4j.smi.OID;
  * name and optionally by a authentication protocol and passphrase as well as
  * a privacy protocol and passphrase.
  * <p>
- * There are no mutators for the attributes of this class, to prevent
+ * There are no setters for the attributes of this class, to prevent
  * inconsistent states in the USM, when a user is changed from outside.
  *
  * @author Frank Fock
- * @version 1.6
+ * @version 2.4.3
  */
 public class UsmUser implements User, Comparable, Cloneable {
 
@@ -77,17 +78,19 @@ public class UsmUser implements User, Comparable, Cloneable {
     if (securityName == null) {
       throw new NullPointerException();
     }
-    if ((authenticationProtocol != null) &&
-        ((authenticationPassphrase != null) &&
-         (authenticationPassphrase.length() < 8))) {
-      throw new IllegalArgumentException(
-          "USM passphrases must be at least 8 bytes long (RFC3414 §11.2)");
-    }
-    if ((privacyProtocol != null) &&
-        ((privacyPassphrase != null) &&
-         (privacyPassphrase.length() < 8))) {
-      throw new IllegalArgumentException(
-          "USM passphrases must be at least 8 bytes long (RFC3414 §11.2)");
+    if (SNMP4JSettings.isCheckUsmUserPassphraseLength()) {
+      if ((authenticationProtocol != null) &&
+          ((authenticationPassphrase != null) &&
+           (authenticationPassphrase.length() < 8))) {
+        throw new IllegalArgumentException(
+            "USM passphrases must be at least 8 bytes long (RFC3414 §11.2)");
+      }
+      if ((privacyProtocol != null) &&
+          ((privacyPassphrase != null) &&
+              (privacyPassphrase.length() < 8))) {
+        throw new IllegalArgumentException(
+            "USM passphrases must be at least 8 bytes long (RFC3414 §11.2)");
+      }
     }
     this.securityName = securityName;
     this.authenticationProtocol = authenticationProtocol;
@@ -245,6 +248,33 @@ public class UsmUser implements User, Comparable, Cloneable {
                                this.privacyProtocol, this.privacyPassphrase,
                                this.localizationEngineID);
     return copy;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+
+    UsmUser usmUser = (UsmUser) o;
+
+    if (!securityName.equals(usmUser.securityName)) return false;
+    if (authenticationPassphrase != null ? !authenticationPassphrase.equals(usmUser.authenticationPassphrase) : usmUser.authenticationPassphrase != null)
+      return false;
+    if (privacyPassphrase != null ? !privacyPassphrase.equals(usmUser.privacyPassphrase) : usmUser.privacyPassphrase != null)
+      return false;
+    if (authenticationProtocol != null ? !authenticationProtocol.equals(usmUser.authenticationProtocol) : usmUser.authenticationProtocol != null)
+      return false;
+    if (privacyProtocol != null ? !privacyProtocol.equals(usmUser.privacyProtocol) : usmUser.privacyProtocol != null)
+      return false;
+    if (localizationEngineID != null ? !localizationEngineID.equals(usmUser.localizationEngineID) : usmUser.localizationEngineID != null)
+      return false;
+
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    return securityName.hashCode();
   }
 
   public String toString() {

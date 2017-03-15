@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - Target.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.OctetString;
 
 /**
- * A <code>Target</code> interface defines an abstract representation of a
+ * A {@code Target} interface defines an abstract representation of a
  * remote SNMP entity. It represents a target with an Address object, as well
  * protocol parameters such as retransmission and timeout policy.
  *
@@ -52,7 +52,7 @@ public interface Target extends Serializable, Cloneable {
   void setAddress(Address address);
 
   /**
-   * Sets the SNMP version (thus the SNMP messagen processing model) of the
+   * Sets the SNMP version (thus the SNMP message processing model) of the
    * target.
    * @param version
    *    the message processing model ID.
@@ -83,7 +83,7 @@ public interface Target extends Serializable, Cloneable {
   /**
    * Gets the number of retries.
    * @return
-   *    an integer >= 0.
+   *    an integer &gt;= 0.
    */
   int getRetries();
 
@@ -135,7 +135,7 @@ public interface Target extends Serializable, Cloneable {
   /**
    * Gets the security model associated with this target.
    * @return
-   *    an <code>int</code> value as defined in the {@link org.snmp4j.security.SecurityModel}
+   *    an {@code int} value as defined in the {@link org.snmp4j.security.SecurityModel}
    *    interface or any third party subclass thereof.
    */
   int getSecurityModel();
@@ -146,7 +146,7 @@ public interface Target extends Serializable, Cloneable {
    * authentication and privacy protocol settings from the security model
    * dependent internal storage.
    * @return
-   *   an <code>OctetString</code> instance (never <code>null</code>).
+   *   an {@code OctetString} instance (never {@code null}).
    */
   OctetString getSecurityName();
 
@@ -154,11 +154,11 @@ public interface Target extends Serializable, Cloneable {
    * Gets the security level associated with this target.
    * @return
    *   one of
-   *   <P><UL>
-   *   <LI>{@link org.snmp4j.security.SecurityLevel#NOAUTH_NOPRIV}
-   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_NOPRIV}
-   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_PRIV}
-   *   </UL></P>
+   *   <UL>
+   *   <LI>{@link org.snmp4j.security.SecurityLevel#NOAUTH_NOPRIV}</LI>
+   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_NOPRIV}</LI>
+   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_PRIV}</LI>
+   *   </UL>
    */
   int getSecurityLevel();
 
@@ -168,18 +168,18 @@ public interface Target extends Serializable, Cloneable {
    * the security name set for this target.
    * @param securityLevel
    *   one of
-   *   <P><UL>
-   *   <LI>{@link org.snmp4j.security.SecurityLevel#NOAUTH_NOPRIV}
-   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_NOPRIV}
-   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_PRIV}
-   *   </UL></P>
+   *   <UL>
+   *   <LI>{@link org.snmp4j.security.SecurityLevel#NOAUTH_NOPRIV}</LI>
+   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_NOPRIV}</LI>
+   *   <LI>{@link org.snmp4j.security.SecurityLevel#AUTH_PRIV}</LI>
+   *   </UL>
    */
   void setSecurityLevel(int securityLevel);
 
   /**
    * Sets the security model for this target.
    * @param securityModel
-   *    an <code>int</code> value as defined in the {@link org.snmp4j.security.SecurityModel}
+   *    an {@code int} value as defined in the {@link org.snmp4j.security.SecurityModel}
    *    interface or any third party subclass thereof.
    */
   void setSecurityModel(int securityModel);
@@ -187,7 +187,7 @@ public interface Target extends Serializable, Cloneable {
   /**
    * Sets the security name to be used with this target.
    * @param securityName
-   *    an <code>OctetString</code> instance (must not be <code>null</code>).
+   *    an {@code OctetString} instance (must not be {@code null}).
    * @see #getSecurityName()
    */
   void setSecurityName(OctetString securityName);

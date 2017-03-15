@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - Variable.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ package org.snmp4j.smi;
 import org.snmp4j.asn1.*;
 
 /**
- * The <code>Variable</code> interface defines common attributes of all SNMP
+ * The {@code Variable} interface defines common attributes of all SNMP
  * variables.
  * <p>
  * Before version 1.8, Variable has been an abstract class which has been
@@ -54,14 +54,14 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
    * Thus, changes to the clone will have no effect to this object.
    *
    * @return
-   *    a new instance of this <code>Variable</code> with the same value.
+   *    a new instance of this {@code Variable} with the same value.
    */
   Object clone();
 
   /**
    * Gets the ASN.1 syntax identifier value of this SNMP variable.
    * @return
-   *    an integer value < 128 for regular SMI objects and a value >= 128
+   *    an integer value &lt; 128 for regular SMI objects and a value &gt;= 128
    *    for exception values like noSuchObject, noSuchInstance, and
    *    endOfMibView.
    */
@@ -71,8 +71,8 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
    * Checks whether this variable represents an exception like
    * noSuchObject, noSuchInstance, and endOfMibView.
    * @return
-   *    <code>true</code> if the syntax of this variable is an instance of
-   *    <code>Null</code> and its syntax equals one of the following:
+   *    {@code true} if the syntax of this variable is an instance of
+   *    {@code Null} and its syntax equals one of the following:
    *    <UL>
    *    <LI>{@link SMIConstants#EXCEPTION_NO_SUCH_OBJECT}</LI>
    *    <LI>{@link SMIConstants#EXCEPTION_NO_SUCH_INSTANCE}</LI>
@@ -120,7 +120,7 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
   String getSyntaxString();
 
   /**
-   * Converts the value of this <code>Variable</code> to a (sub-)index
+   * Converts the value of this {@code Variable} to a (sub-)index
    * value.
    * @param impliedLength
    *    specifies if the sub-index has an implied length. This parameter applies
@@ -134,7 +134,7 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
   OID toSubIndex(boolean impliedLength);
 
   /**
-   * Sets the value of this <code>Variable</code> from the supplied (sub-)index.
+   * Sets the value of this {@code Variable} from the supplied (sub-)index.
    * @param subIndex
    *    the sub-index OID.
    * @param impliedLength
@@ -153,10 +153,9 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
    * {@link #getBERLength()} for encoding enclosing SEQUENCES and the actual
    * encoding of the Variable itself with {@link #encodeBER} changes to the
    * value need to be blocked by synchronization.
-   * <p>
-   * In order to ensure proper synchronization if a <code>Variable</code> is
+   * In order to ensure proper synchronization if a {@code Variable} is
    * dynamic, modifications of the variables content need to synchronize on
-   * the <code>Variable</code> instance. This can be achieved for the standard
+   * the {@code Variable} instance. This can be achieved for the standard
    * SMI Variable implementations for example by
    * <pre>
    *    public static modifyVariable(Integer32 variable, int value)
@@ -167,9 +166,9 @@ public interface Variable extends Cloneable, Comparable<Variable>, BERSerializab
    * </pre>
    *
    * @return
-   *    <code>true</code> if the variable might change its value between
+   *    {@code true} if the variable might change its value between
    *    two calls to {@link #getBERLength()} and {@link #encodeBER} and
-   *    <code>false</code> if the value is immutable or if its value does
+   *    {@code false} if the value is immutable or if its value does
    *    not change while serialization because of measures taken by the
    *    implementor (i.e. variable cloning).
    */

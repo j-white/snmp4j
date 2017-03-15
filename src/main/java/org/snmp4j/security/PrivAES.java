@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - PrivAES.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.snmp4j.smi.OctetString;
 
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+
 
 /**
  * Base class for PrivAES128, PrivAES192 and PrivAES256.
@@ -35,17 +39,18 @@ import org.snmp4j.smi.OctetString;
  * draft-blumenthal-aes-usm-04.txt (AES192 and AES256).
  *
  * @author Jochen Katz
- * @version 2.2.3
+ * @version 2.5.0
  */
-public abstract class PrivAES
+public abstract class PrivAES extends PrivacyGeneric
     implements PrivacyProtocol {
 
+  private static final String PROTOCOL_ID = "AES/CFB/NoPadding";
+  private static final String PROTOCOL_CLASS = "AES";
   private static final int DECRYPT_PARAMS_LENGTH = 8;
+  private static final int INIT_VECTOR_LENGTH = 16;
 
   private static final LogAdapter logger = LogFactory.getLogger(PrivAES.class);
-  private int keyBytes;
   protected Salt salt;
-  protected CipherPool cipherPool;
 
   /**
    * Constructor.
@@ -56,6 +61,9 @@ public abstract class PrivAES
    *    if keyBytes is illegal
    */
   public PrivAES(int keyBytes) {
+    super.initVectorLength = INIT_VECTOR_LENGTH;
+    super.protocolId = PROTOCOL_ID;
+    super.protocolClass = PROTOCOL_CLASS;
     if ((keyBytes != 16) && (keyBytes != 24) && (keyBytes != 32)) {
       throw new IllegalArgumentException(
           "Only 128, 192 and 256 bit AES is allowed. Requested ("
@@ -70,7 +78,7 @@ public abstract class PrivAES
                         byte[] encryptionKey, long engineBoots,
                         long engineTime, DecryptParams decryptParams) {
 
-    byte[] initVect = new byte[16];
+    byte[] initVect = new byte[INIT_VECTOR_LENGTH];
     long my_salt = salt.getNext();
 
     if (encryptionKey.length != keyBytes) {
@@ -107,15 +115,7 @@ public abstract class PrivAES
     // allocate space for encrypted text
     byte[] encryptedData = null;
     try {
-      // now do CFB encryption of the plaintext
-      Cipher alg = cipherPool.reuseCipher();
-      if (alg == null) {
-        alg = Cipher.getInstance("AES/CFB/NoPadding");
-      }
-      SecretKeySpec key =
-          new SecretKeySpec(encryptionKey, 0, keyBytes, "AES");
-      IvParameterSpec ivSpec = new IvParameterSpec(initVect);
-      alg.init(Cipher.ENCRYPT_MODE, key, ivSpec);
+      Cipher alg = doInit(encryptionKey, initVect);
       encryptedData =  alg.doFinal(unencryptedData, offset, length);
       cipherPool.offerCipher(alg);
 
@@ -165,37 +165,7 @@ public abstract class PrivAES
       logger.debug("initVect is " + asHex(initVect));
     }
 
-    byte[] decryptedData = null;
-    try {
-      // now do CFB decryption of the encrypted data
-      Cipher alg = cipherPool.reuseCipher();
-      if (alg == null) {
-        alg = Cipher.getInstance("AES/CFB/NoPadding");
-      }
-      SecretKeySpec key =
-          new SecretKeySpec(decryptionKey, 0, keyBytes, "AES");
-      IvParameterSpec ivSpec = new IvParameterSpec(initVect);
-      alg.init(Cipher.DECRYPT_MODE, key, ivSpec);
-      decryptedData =  alg.doFinal(cryptedData, offset, length);
-      cipherPool.offerCipher(alg);
-
-      if (logger.isDebugEnabled()) {
-        logger.debug("aes decrypt: Data to decrypt " + asHex(cryptedData));
-
-        logger.debug("aes decrypt: used key " + asHex(decryptionKey));
-
-        logger.debug("aes decrypt: used privacy_params " +
-                     asHex(decryptParams.array));
-
-        logger.debug("aes decrypt: decrypted Data  " +
-                     asHex(decryptedData));
-      }
-    }
-    catch (Exception e) {
-      logger.error("Decrypt Exception " + e);
-    }
-
-    return decryptedData;
+    return doDecrypt(cryptedData, offset, length, decryptionKey, initVect);
   }
 
   public int getEncryptedLength(int scopedPDULength) {

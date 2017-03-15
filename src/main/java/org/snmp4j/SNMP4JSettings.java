@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - SNMP4JSettings.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public final class SNMP4JSettings {
    */
   public enum ReportSecurityLevelStrategy {
     /**
-     * This is the SNMP4J < 2.2.0 default strategy. If the report receiver would not
+     * This is the SNMP4J &lt; 2.2.0 default strategy. If the report receiver would not
      * be able to process the REPORT, a lesser security level is used.
      */
     noAuthNoPrivIfNeeded,
@@ -185,8 +185,16 @@ public final class SNMP4JSettings {
   /**
    * The snmp4jStatistics value defines the level of statistic values that are collected
    * in extension to those collected for the SNMP standard.
+   * @since 2.4.2
    */
   private static Snmp4jStatistics snmp4jStatistics = Snmp4jStatistics.basic;
+
+  /**
+   * The checkUsmUserPassphraseLength specifies whether the minimum USM pasaphrase length should be
+   * checked when creating UsmUser instances (RFC3414 §11.2). Default is yes.
+   * @since 2.5.0
+   */
+  private static boolean checkUsmUserPassphraseLength = true;
 
   /**
    * Enables (or disables) the extensibility feature of SNMP4J. When enabled,
@@ -459,5 +467,13 @@ public final class SNMP4JSettings {
    */
   public static void setSnmp4jStatistics(Snmp4jStatistics snmp4jStatistics) {
     SNMP4JSettings.snmp4jStatistics = snmp4jStatistics;
+  }
+
+  public static boolean isCheckUsmUserPassphraseLength() {
+    return checkUsmUserPassphraseLength;
+  }
+
+  public static void setCheckUsmUserPassphraseLength(boolean checkUsmUserPassphraseLength) {
+    SNMP4JSettings.checkUsmUserPassphraseLength = checkUsmUserPassphraseLength;
   }
 }

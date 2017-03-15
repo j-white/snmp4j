@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - SecurityProtocols.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 package org.snmp4j.security;
 
 import java.io.Serializable;
+
+import org.snmp4j.security.nonstandard.NonStandardSecurityProtocol;
 import org.snmp4j.smi.OID;
 import java.io.InputStream;
 import java.util.Properties;
@@ -39,7 +41,8 @@ import org.snmp4j.SNMP4JSettings;
  * of the <code>SecurityProtocols.properties</code> file. The path has to
  * be specified relatively to this class.
  *
- * @author Jochen Katz & Frank Fock
+ * @author Frank Fock
+ * @author Jochen Katz
  * @version 1.9
  */
 public class SecurityProtocols implements Serializable {
@@ -112,9 +115,20 @@ public class SecurityProtocols implements Serializable {
         props.load(is);
         for (Enumeration en = props.propertyNames(); en.hasMoreElements(); ) {
           String className = en.nextElement().toString();
+          String customOidString = props.getProperty(className);
+          OID customOID = null;
+          if (customOidString != null) {
+            customOID = new OID(customOidString);
+          }
           try {
             Class c = Class.forName(className);
             Object proto = c.newInstance();
+            if ((proto instanceof NonStandardSecurityProtocol) && (customOID != null)) {
+              if (logger.isInfoEnabled()) {
+                logger.info("Assigning custom ID '" + customOID + "' to security protocol " + className);
+              }
+              ((NonStandardSecurityProtocol)proto).setID(customOID);
+            }
             if (proto instanceof AuthenticationProtocol) {
               addAuthenticationProtocol((AuthenticationProtocol) proto);
             }
@@ -152,7 +166,9 @@ public class SecurityProtocols implements Serializable {
     else {
       addAuthenticationProtocol(new AuthMD5());
       addAuthenticationProtocol(new AuthSHA());
+      addAuthenticationProtocol(new AuthHMAC128SHA224());
       addAuthenticationProtocol(new AuthHMAC192SHA256());
+      addAuthenticationProtocol(new AuthHMAC256SHA384());
       addAuthenticationProtocol(new AuthHMAC384SHA512());
       addPrivacyProtocol(new PrivDES());
       addPrivacyProtocol(new PrivAES128());

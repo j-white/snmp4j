@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - USM.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -33,10 +33,10 @@ import org.snmp4j.mp.*;
 import org.snmp4j.smi.*;
 
 /**
- * The <code>USM</code> class implements the User Based Security Model (USM)
+ * The {@code USM} class implements the User Based Security Model (USM)
  * as defined in RFC 3414.
- * <p>
- * When a user is added or removed from the USM, a <code>UsmUserEvent</code>
+ *
+ * When a user is added or removed from the USM, a {@link UsmUserEvent}
  * is fired and forwarded to registered listeners.
  *
  * @author Frank Fock
@@ -198,14 +198,13 @@ public class USM extends SNMPv3SecurityModel {
   /**
    * Checks if the specified user is known by this USM.
    * @param engineID
-   *   the engineID of the user (may be <code>null</code> if any target should
+   *   the engineID of the user (may be {@code null} if any target should
    *   match).
    * @param securityName
    *   the security name of the user to earch for.
    * @return
-   *   <code>true</code> if the user is either known for the specified engine ID
+   *   {@code true} if the user is either known for the specified engine ID
    *   or without a specific engine ID (discovery only).
-   * @since
    */
   public boolean hasUser(OctetString engineID, OctetString securityName) {
     UsmUserEntry entry = userTable.getUser(engineID, securityName);
@@ -231,7 +230,7 @@ public class USM extends SNMPv3SecurityModel {
    *    a security name.
    * @return
    *    an localized {@link org.snmp4j.security.UsmUserEntry} if the provided
-   *    engineID's length is greater than zero and <code>null</code> if the
+   *    engineID's length is greater than zero and {@code null} if the
    *    securityName cannot be found in the USM.
    */
   public UsmUserEntry getUser(OctetString engineID, OctetString securityName) {
@@ -809,7 +808,7 @@ public class USM extends SNMPv3SecurityModel {
    * @param userName
    *    a user name.
    * @param user
-   *    the <code>UsmUser</code> to add.
+   *    the {@code UsmUser} to add.
    */
   public void addUser(OctetString userName, UsmUser user) {
     addUser(userName, new OctetString(), user);
@@ -819,7 +818,7 @@ public class USM extends SNMPv3SecurityModel {
    * Adds an USM user to the internal user name table.
    * The user's security name is used as userName.
    * @param user
-   *    the <code>UsmUser</code> to add.
+   *    the {@code UsmUser} to add.
    * @since 2.0
    */
   public void addUser(UsmUser user) {
@@ -840,14 +839,14 @@ public class USM extends SNMPv3SecurityModel {
    *    a user name.
    * @param engineID
    *    the authoritative engine ID to be associated with this entry. If
-   *    <code>engineID</code> is <code>null</code> this method behaves exactly
+   *    {@code engineID} is {@code null} this method behaves exactly
    *    like {@link #addUser(OctetString userName, UsmUser user)}.
    * @param user
-   *    the <code>UsmUser</code> to add.
+   *    the {@code UsmUser} to add.
    * @throws
    *    IllegalArgumentException if (a) the length of the engine ID is less than
    *    {@link MPv3#MINLEN_ENGINE_ID} or more than {@link MPv3#MAXLEN_ENGINE_ID} bytes
-   *    (b) if the security name of the <code>user</code> is longer than
+   *    (b) if the security name of the {@code user} is longer than
    *    {@link #MAXLEN_USMUSERNAME}.
    */
   public void addUser(OctetString userName, OctetString engineID, UsmUser user) {
@@ -907,10 +906,10 @@ public class USM extends SNMPv3SecurityModel {
 
   /**
    * Updates the USM user entry with the same engine ID and user name as the
-   * supplied instance and fires an appropriate <code>UsmUserEvent</code>.
+   * supplied instance and fires an appropriate {@code UsmUserEvent}.
    * If the corresponding user entry does not yet exist then it will be added.
    * @param entry
-   *    an <code>UsmUserEntry</code> instance not necessarily the same as an
+   *    an {@code UsmUserEntry} instance not necessarily the same as an
    *    already existing entry.
    * @since 1.2
    */
@@ -927,7 +926,7 @@ public class USM extends SNMPv3SecurityModel {
    * user information will be discarded and replaced by the supplied users.
    *
    * @param users
-   *    a possibly empty <code>UsmUser</code> array of users.
+   *    a possibly empty {@code UsmUser} array of users.
    * @since 1.1
    */
   public void setUsers(UsmUser[] users) {
@@ -947,13 +946,13 @@ public class USM extends SNMPv3SecurityModel {
   }
 
   /**
-   * Returns the <code>UsmUserTable</code> instance used by the USM for local
+   * Returns the {@code UsmUserTable} instance used by the USM for local
    * storage of USM user information. The returned table should not be modified,
    * because modifications will not be reported to registered
-   * <code>UsmUserListener</code>s.
+   * {@code UsmUserListener}s.
    *
    * @return
-   *    the <code>UsmUserTable</code> instance containing the users known by
+   *    the {@code UsmUserTable} instance containing the users known by
    *    this USM.
    */
   public UsmUserTable getUserTable() {
@@ -980,10 +979,10 @@ public class USM extends SNMPv3SecurityModel {
    *    a user name.
    * @param engineID
    *    the authoritative engine ID associated with the user by localization, or
-   *    <code>null</code> if all users with <code>userName</code> should be
+   *    {@code null} if all users with {@code userName} should be
    *    deleted.
    * @return
-   *    the removed <code>UsmUser</code> instances as a List. If the user could
+   *    the removed {@code UsmUser} instances as a List. If the user could
    *    be found, an empty list is returned.
    * @since
    *    2.2
@@ -1004,12 +1003,12 @@ public class USM extends SNMPv3SecurityModel {
   /**
    * Removes all USM user from the internal user name table with the specified user
    * name. This is the same as {@link #removeAllUsers(org.snmp4j.smi.OctetString, org.snmp4j.smi.OctetString)}
-   * with engineID set to <code>null</code>.
+   * with engineID set to {@code null}.
    *
    * @param userName
    *    a user name.
    * @return
-   *    the removed <code>UsmUser</code> instances as a List. If the user could
+   *    the removed {@code UsmUser} instances as a List. If the user could
    *    be found, an empty list is returned.
    * @since
    *    2.2
@@ -1022,15 +1021,15 @@ public class USM extends SNMPv3SecurityModel {
    * Removes an USM user from the internal user name table.
    * @param engineID
    *    the authoritative engine ID associated with the user, or
-   *    <code>null</code>
+   *    {@code null}
    * @param userName
    *    a user name.
    * @return
-   *    the removed <code>UsmUser</code> instance associate with the given
-   *    <code>userName</code> or <code>null</code> if such a user could not
+   *    the removed {@code UsmUser} instance associate with the given
+   *    {@code userName} or {@code null} if such a user could not
    *    be found.
    * @deprecated
-   *    If the engineID <code>null</code> is provided this method does only
+   *    If the engineID {@code null} is provided this method does only
    *    delete the generic user. All already localized users will not be deleted.
    *    To delete those users too, use {@link #removeAllUsers()} instead.
    */
@@ -1066,7 +1065,7 @@ public class USM extends SNMPv3SecurityModel {
    * @param privKey
    *    the privacy key.
    * @return
-   *    the added <code>UsmUserEntry</code>.
+   *    the added {@code UsmUserEntry}.
    */
   public UsmUserEntry addLocalizedUser(byte[] engineID,
                                        OctetString userName,
@@ -1086,7 +1085,7 @@ public class USM extends SNMPv3SecurityModel {
    * will try to discover unknown engine IDs "on-the-fly" while processing the
    * message.
    * @return
-   *    <code>true</code> if discovery is enabled, <code>false</code> otherwise.
+   *    {@code true} if discovery is enabled, {@code false} otherwise.
    */
   public boolean isEngineDiscoveryEnabled() {
     return engineDiscoveryEnabled;
@@ -1095,17 +1094,17 @@ public class USM extends SNMPv3SecurityModel {
   /**
    * Enables or disables automatic engine ID discovery.
    * @param engineDiscoveryEnabled
-   *    <code>true</code> if discovery should be enabled,
-   *    <code>false</code> otherwise.
+   *    {@code true} if discovery should be enabled,
+   *    {@code false} otherwise.
    */
   public void setEngineDiscoveryEnabled(boolean engineDiscoveryEnabled) {
     this.engineDiscoveryEnabled = engineDiscoveryEnabled;
   }
 
   /**
-   * Removes a <code>UsmUserListener</code>.
+   * Removes a {@code UsmUserListener}.
    * @param l
-   *    a previously added <code>UsmUserListener</code>.
+   *    a previously added {@code UsmUserListener}.
    */
   public synchronized void removeUsmUserListener(UsmUserListener l) {
     if (usmUserListeners != null && usmUserListeners.contains(l)) {
@@ -1114,11 +1113,11 @@ public class USM extends SNMPv3SecurityModel {
   }
 
   /**
-   * Adds a <code>UsmUserListener</code> that should be informed whenever the
+   * Adds a {@code UsmUserListener} that should be informed whenever the
    * internal USM user table is changed.
    *
    * @param l
-   *    a <code>UsmUserListener</code> that should be informed about
+   *    a {@code UsmUserListener} that should be informed about
    *    {@link UsmUserEvent} events.
    */
   public synchronized void addUsmUserListener(UsmUserListener l) {
@@ -1144,16 +1143,16 @@ public class USM extends SNMPv3SecurityModel {
   }
 
   /**
-   * Fires a <code>UsmUserEvent</code>.
+   * Fires a {@code UsmUserEvent}.
    * @param e
-   *    the <code>UsmUserEvent</code> to fire.
+   *    the {@code UsmUserEvent} to fire.
    */
   protected void fireUsmUserChange(UsmUserEvent e) {
     if (usmUserListeners != null) {
       Vector<UsmUserListener> listeners = usmUserListeners;
       int count = listeners.size();
-      for (int i = 0; i < count; i++) {
-        (listeners.get(i)).usmUserChange(e);
+      for (UsmUserListener listener : listeners) {
+        listener.usmUserChange(e);
       }
     }
   }
@@ -1162,7 +1161,7 @@ public class USM extends SNMPv3SecurityModel {
    * Gets the counter support instance that can be used to register for
    * counter incrementation events.
    * @return
-   *    a <code>CounterSupport</code> instance that is used to fire
+   *    a {@code CounterSupport} instance that is used to fire
    *    {@link CounterEvent}.
    */
   public CounterSupport getCounterSupport() {
@@ -1172,7 +1171,7 @@ public class USM extends SNMPv3SecurityModel {
   /**
    * Returns the security protocol collection used by this USM.
    * @return
-   *    a <code>SecurityProtocols</code> instance which is by default the
+   *    a {@code SecurityProtocols} instance which is by default the
    *    same instance as returned by {@link SecurityProtocols#getInstance()}.
    * @since 1.2
    */
@@ -1184,7 +1183,7 @@ public class USM extends SNMPv3SecurityModel {
    * Sets the counter support instance. By default, the singleton instance
    * provided by the {@link CounterSupport} instance is used.
    * @param counterSupport
-   *    a <code>CounterSupport</code> subclass instance.
+   *    a {@code CounterSupport} subclass instance.
    */
   public void setCounterSupport(CounterSupport counterSupport) {
     if (counterSupport == null) {

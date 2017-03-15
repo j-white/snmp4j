@@ -2,7 +2,7 @@
   _## 
   _##  SNMP4J 2 - ArgumentParser.java  
   _## 
-  _##  Copyright (C) 2003-2013  Frank Fock and Jochen Katz (SNMP4J.org)
+  _##  Copyright (C) 2003-2016  Frank Fock and Jochen Katz (SNMP4J.org)
   _##  
   _##  Licensed under the Apache License, Version 2.0 (the "License");
   _##  you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@ import java.util.regex.Matcher;
 import org.snmp4j.smi.OctetString;
 
 /**
- * The <code>ArgumentParser</code> parsers a command line array into Java
+ * The {@code ArgumentParser} parsers a command line array into Java
  * objects and associates each object with the corresponding command line option
  * according to predefined schemes for options and parameters.
  * <p>
- * The format specification for options is:
+ * The format specification for options is:</p>
  * <pre>
  * [-&lt;option&gt;\[&lt;type&gt;[\&lt;&lt;regex&gt;\&gt;]{&lt;parameter&gt;[=&lt;default&gt;]}\]] ...
  * </pre>
@@ -41,14 +41,13 @@ import org.snmp4j.smi.OctetString;
  * <li>&lt;option&gt; is the name of the option, for example 'h' for 'help'</li>
  * <li>&lt;type&gt; is one of 'i' (integer), 'l' (long), 'o' (octet string),
  * and 's' (string)</li>
- * </li>&lt;regex&gt; is a regular expression pattern that describes valid
+ * <li>&lt;regex&gt; is a regular expression pattern that describes valid
  * values</li>
- * </li>&lt;default&gt; is a default value. If a default value is given, then
+ * <li>&lt;default&gt; is a default value. If a default value is given, then
  * a mandatory option is in fact optional</li>
  * </ul>
- * </p>
  * <p>
- * The format specification for parameters is:
+ * The format specification for parameters is:</p>
  * <pre>
  * [-&lt;parameter&gt;[&lt;type&gt;[&lt;&lt;regex&gt;&gt;]{[=&lt;default&gt;]}]]... [+&lt;optionalParameter&gt;[&lt;type&gt;[&lt;&lt;regex&gt;&gt;]{[=&lt;default&gt;]}]]... [&lt;..&gt;]
  * </pre>
@@ -58,13 +57,11 @@ import org.snmp4j.smi.OctetString;
  * optional parameter which must not be followed by a mandatory parameter</li>
  * <li>&lt;parameter&gt; is the name of the parameter, for example 'port'</li>
  * <li>&lt;type&gt; is one of 'i' (integer), 'l' (long), and 's' (string)</li>
- * </li>&lt;regex&gt; is a regular expression pattern that describes valid
- * values</li>
+ * <li>&lt;regex&gt; is a regular expression pattern that describes valid values</li>
  * <li>&lt;default&gt; is a default value</li>
  * <li>&lt;..&gt; (two consecutive dots after a space at the end of the pattern)
- * indicate that the last parameter may occur more than once
+ * indicate that the last parameter may occur more than once</li>
  * </ul>
- * </p>
  *
  * @author Frank Fock
  * @version 1.10
@@ -136,32 +133,29 @@ public class ArgumentParser {
           else if (",".equals(param)) {
             continue;
           }
-          if (param.indexOf('<')>0) {
+          if (param.indexOf('<')>0 && param.indexOf('>') <0) {
             inRegex = param;
           }
           ArgumentParameter ap = new ArgumentParameter();
           ap.name = ""+i;
+          if (param.endsWith("}")) {
+            param = parseParameterFormat(param, ap);
+          }
           if (param.endsWith(">")) {
             inRegex = null;
             int regexPos = param.indexOf('<');
             ap.pattern =
                 Pattern.compile(param.substring(regexPos+1, param.length()-1));
             param = param.substring(0, regexPos);
+            if (param.endsWith("}")) {
+              parseParameterFormat(param, ap);
+            }
+            else {
+              ap.type = getType(param);
+            }
           }
           else if (inRegex != null) {
             continue;
-          }
-          if (param.endsWith("}")) {
-            ap.type = getType(param.substring(0, param.indexOf("{")));
-            param = param.substring(param.indexOf('{')+1, param.length()-1);
-            int posEqual = param.indexOf('=');
-            if (posEqual >= 0) {
-              ap.defaultValue = param.substring(posEqual+1);
-              ap.name = param.substring(0, posEqual);
-            }
-            else {
-              ap.name = param;
-            }
           }
           else {
             ap.type = getType(param);
@@ -179,6 +173,27 @@ public class ArgumentParser {
       options.put(af.option, af);
     }
     return options;
+  }
+
+  private static String parseParameterFormat(String param, ArgumentParameter ap) {
+    int posEnd = param.indexOf('<');
+    posEnd = posEnd>0 ? posEnd :  param.indexOf("{");
+    ap.type = getType(param.substring(0, posEnd));
+    String defaultValue = param.substring(param.indexOf('{')+1, param.length()-1);
+    int posEqual = defaultValue.indexOf('=');
+    if (posEqual >= 0) {
+      ap.defaultValue = defaultValue.substring(posEqual+1);
+      ap.name = defaultValue.substring(0, posEqual);
+    }
+    else {
+      ap.name = defaultValue;
+    }
+    int posParamEnd = param.indexOf('>');
+    if (posParamEnd > 0) {
+      posEnd = posParamEnd+1;
+    }
+    param = param.substring(0, posEnd);
+    return param;
   }
 
   private static int getType(String type) {
@@ -200,8 +215,8 @@ public class ArgumentParser {
    *    parameters.
    */
   @SuppressWarnings("unchecked")
-  public Map<String,List> parse(String[] args) throws ParseException {
-    Map<String,List> options = new LinkedHashMap<String,List>();
+  public Map<String,List<?>> parse(String[] args) throws ParseException {
+    Map<String,List<?>> options = new LinkedHashMap<String,List<?>>();
     Iterator<? extends ArgumentFormat> params = parameterFormat.values().iterator();
     ArgumentFormat lastFormat = null;
     for (int i=0; i<args.length; i++) {
@@ -245,7 +260,24 @@ public class ArgumentParser {
     while (params.hasNext()) {
       ArgumentFormat af = params.next();
       if (af.isMandatory()) {
-        throw new ArgumentParseException(-1, null, af, af.getParameters()[0]);
+        if (af.getParameters() != null && af.getParameters().length > 0) {
+          List defaults = new ArrayList();
+          for (ArgumentParameter parameter : af.getParameters()) {
+            if (parameter.getDefaultValue() == null) {
+              throw new ArgumentParseException(-1, null, af, parameter);
+            }
+            else {
+              defaults.add(parseParameterValue(parameter,
+                  parameter.getDefaultValue(),
+                  af, defaults.size()));
+
+            }
+          }
+          addValues2Option(af.getOption(), defaults, options);
+        }
+      }
+      else {
+        throw new ArgumentParseException(-1, null, af, null);
       }
     }
     for (ArgumentFormat of : optionFormat.values()) {
@@ -269,7 +301,7 @@ public class ArgumentParser {
   }
 
   @SuppressWarnings("unchecked")
-  protected void addValues2Option(String option, List values, Map<String,List> options) {
+  protected void addValues2Option(String option, List values, Map<String,List<?>> options) {
     List existingValues = options.get(option);
     if ((existingValues != null) && (values != null)) {
       existingValues.addAll(values);
@@ -279,7 +311,7 @@ public class ArgumentParser {
     }
   }
 
-  protected List parseValues(String[] args, int offset, ArgumentFormat format) throws ParseException {
+  protected List<?> parseValues(String[] args, int offset, ArgumentFormat format) throws ParseException {
     int numParams = format.getParameters().length;
     List<Object> values = new ArrayList<Object>(numParams);
     for (int i=0; (i+offset < args.length) && (i < numParams); i++) {
@@ -446,10 +478,10 @@ public class ArgumentParser {
   /**
    * Gets the first option value of a list of values - if available.
    * @param optionValues
-   *    a probably empty list of values - could be <code>null</code>.
+   *    a probably empty list of values - could be {@code null}.
    * @return
-   *    the first option value in <code>optionValues</code> if it exists,
-   *    <code>null</code> otherwise.
+   *    the first option value in {@code optionValues} if it exists,
+   *    {@code null} otherwise.
    * @since 1.9.2
    */
   public static Object getFirstValue(List<? extends Object> optionValues) {
@@ -460,7 +492,7 @@ public class ArgumentParser {
   }
 
   /**
-   * Gets the <code>n</code>-th option value of a list of values - if available.
+   * Gets the {@code n}-th option value of a list of values - if available.
    * @param args
    *    a parameter and options list.
    * @param name
@@ -468,8 +500,8 @@ public class ArgumentParser {
    * @param index
    *    the index (zero based) of the option/parameter value to return.
    * @return
-   *    the <code>n</code>-th (zero based) option value in
-   *    <code>args.get(name)</code> if it exists, <code>null</code> otherwise.
+   *    the {@code n}-th (zero based) option value in
+   *    {@code args.get(name)} if it exists, {@code null} otherwise.
    * @since 1.10
    */
   public static Object getValue(Map args, String name, int index) {
@@ -483,17 +515,17 @@ public class ArgumentParser {
   /**
    * Test application to try out patterns and command line parameters.
    * The default option and parameter patterns can be overridden by setting
-   * the system properties <code>org.snmp4j.OptionFormat</code> and
-   * <code>org.snmp4j.ParameterFormat</code> respectively.
+   * the system properties {@code org.snmp4j.OptionFormat} and
+   * {@code org.snmp4j.ParameterFormat} respectively.
    * <p>
    * The given command line is parsed using the specified patterns and the
    * parsed values are returned on the console output.
    * </p>
    * <p>
-   * The default option pattern is <code>-o1[i{parameter1}] -o2[s,l]</code>
+   * The default option pattern is {@code -o1[i{parameter1}] -o2[s,l]}
    * and the default parameter pattern is
-   * <code>-param1[i] -param2[s<(udp|tcp):.*[/[0-9]+]?>] +optParam1[l{=-100}] ..
-   * </code>
+   * {@code -param1[i] -param2[s<(udp|tcp):.*[/[0-9]+]?>] +optParam1[l{=-100}] ..
+   * }
    * </p>
    * @param args
    *    the command line arguments to match with the specified format patterns.
@@ -532,8 +564,8 @@ public class ArgumentParser {
    * @return
    *    the command set matching the command in the argument list.
    * @throws ParseException
-   *    if the command found in <code>args</code> cannot be found in the
-   *    <code>commandSets</code>, or <code>null</code> if <code>args</code>
+   *    if the command found in {@code args} cannot be found in the
+   *    {@code commandSets}, or {@code null} if {@code args}
    *    does not contain any command.
    * @since 1.10
    */
@@ -545,9 +577,9 @@ public class ArgumentParser {
         new ArgumentParser(optionFormat, "#command[s] +following[s] ..");
     Map params = ap.parse(args);
     String command = (String) ArgumentParser.getValue(params, "command", 0);
-    for (int j=0; j<commandSets.length; j++) {
-      if (commandSets[j][0].equals(command)) {
-        return commandSets[j];
+    for (String[] commandSet : commandSets) {
+      if (commandSet[0].equals(command)) {
+        return commandSet;
       }
     }
     throw new ParseException("Command '"+command+"' not found", 0);
