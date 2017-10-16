@@ -21,13 +21,14 @@ package org.snmp4j.asn1;
 
 import java.io.OutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 
 /**
  * The BER class provides utility methods for the BER encoding and decoding.
  *
  * @author Frank Fock
  * @author Jochen Katz
- * @version 1.7.4
+ * @version 2.5.8
  */
 public class BER {
 
@@ -76,6 +77,7 @@ public class BER {
 
   private static boolean checkSequenceLength = true;
   private static boolean checkValueLength = true;
+  private static boolean checkFirstSubID012 = true;
 
   /**
    * The {@code MutableByte} class serves for exchanging type information
@@ -279,6 +281,38 @@ public class BER {
   }
 
   /**
+   * Encode a signed integer.
+   * @param os
+   *    an {@code OutputStream} to which the length is encoded.
+   * @param type
+   *    the tag type for the integer (typically 0x02)
+   * @param value
+   *    the integer value to encode.
+   * @throws IOException
+   *   if the output stream fails to store the encoded integer.
+   */
+  public static void encodeBigInteger(OutputStream os, byte type, BigInteger value)
+          throws IOException
+  {
+    byte[] bytes = value.toByteArray();
+    encodeHeader(os, type, bytes.length);
+    os.write(bytes);
+  }
+
+  /**
+   * Get the BER encoded length of a BigInteger value.
+   * @param value
+   *    a BigInteger value with a length that is less 2^31.
+   * @return
+   *    the length of the BER encoding of the supplied BigInteger as INTEGER value.
+   */
+  public static int getBigIntegerBERLength(BigInteger value) {
+    int length = value.toByteArray().length;
+    return length + getBERLengthOfLength(length) + 1;
+  }
+
+
+  /**
    * Encode an unsigned integer.
    * ASN.1 integer ::= 0x02 asnlength byte {byte}*
    * @param os
@@ -445,7 +479,7 @@ public class BER {
     }
     else {
       int firstSubID = oid[0];
-      if (firstSubID < 0 || firstSubID > 2) {
+      if (checkFirstSubID012 && (firstSubID < 0 || firstSubID > 2)) {
         throw new IOException("Invalid first sub-identifier (must be 0, 1, or 2)");
       }
       encodeSubID(os, oid[1] + (firstSubID * 40));
@@ -674,6 +708,31 @@ public class BER {
     return value;
   }
 
+  public static BigInteger decodeBigInteger(BERInputStream is, MutableByte type)
+          throws IOException
+  {
+    int length;
+    type.setValue((byte)is.read());
+
+    if (type.value != 0x02) {
+      throw new IOException("Wrong ASN.1 type. Not an INTEGER: "+type.value+
+              getPositionMessage(is));
+    }
+    length = decodeLength(is);
+    if (length < 0) {
+      throw new IOException("Length greater than "+Integer.MAX_VALUE+" are not supported "+
+              " for integers: "+getPositionMessage(is));
+    }
+    byte[] bytes = new byte[length];
+    int actualRead = is.read(bytes);
+    if (actualRead != length) {
+      throw new IOException("Length of INTEGER ("+length+") is greater than number of bytes left in BER stream: "+
+              actualRead);
+    }
+    return new BigInteger(bytes);
+  }
+
+
   private static String getPositionMessage(BERInputStream is) {
     return " at position "+is.getPosition();
   }
@@ -736,21 +795,16 @@ public class BER {
         (type.value != BER.IPADDRESS) && (type.value != BER.OPAQUE) &&
         (type.value != BER.BITSTRING) &&
         (type.value != 0x45)) {
-      throw new IOException("Wrong ASN.1 type. Not a string: "+type.value+
-                            getPositionMessage(is));
+      throw new IOException("Wrong ASN.1 type. Not a string: "+type.value+getPositionMessage(is));
     }
     int length = decodeLength(is);
 
     byte[] value = new byte[length];
-    int pos = 0;
 
-    while ((pos < length) && (is.available()>0)) {
-      int read = is.read(value);
-      if (read > 0) {
-        pos += read;
-      }
-      else if (read < 0) {
-        throw new IOException("Wrong string length "+read+" < "+length);
+    if (length > 0) {
+      int read = is.read(value, 0, length);
+      if ((read < 0) || (read < length)) {
+        throw new IOException("Wrong string length " + read + " < " + length);
       }
     }
     return value;
@@ -960,6 +1014,13 @@ public class BER {
     BER.checkValueLength = checkValueLength;
   }
 
+  public static boolean isCheckFirstSubID012() {
+    return checkFirstSubID012;
+  }
+
+  public static void setCheckFirstSubID012(boolean checkFirstSubID012) {
+    BER.checkFirstSubID012 = checkFirstSubID012;
+  }
 }
 
 

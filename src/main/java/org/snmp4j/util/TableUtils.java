@@ -52,6 +52,8 @@ public class TableUtils extends AbstractSnmpUtility {
   private int maxNumOfRowsPerPDU = 10;
   private int maxNumColumnsPerPDU = 10;
 
+  private boolean sendColumnPDUsMultiThreaded;
+
   /**
    * Creates a <code>TableUtils</code> instance. The created instance is thread
    * safe as long as the supplied <code>Session</code> and <code>PDUFactory</code>
@@ -207,7 +209,10 @@ public class TableUtils extends AbstractSnmpUtility {
                                         userObject,
                                         lowerBoundIndex,
                                         upperBoundIndex);
-    req.sendNextChunk();
+    boolean sendMore = req.sendNextChunk();
+    while (sendColumnPDUsMultiThreaded && sendMore) {
+      sendMore = req.sendNextChunk();
+    }
   }
 
   /**
@@ -319,6 +324,32 @@ public class TableUtils extends AbstractSnmpUtility {
     this.maxNumColumnsPerPDU = numberOfColumnsPerChunk;
   }
 
+  public boolean isSendColumnPDUsMultiThreaded() {
+    return sendColumnPDUsMultiThreaded;
+  }
+
+  public void setSendColumnPDUsMultiThreaded(boolean sendColumnPDUsMultiThreaded) {
+    this.sendColumnPDUsMultiThreaded = sendColumnPDUsMultiThreaded;
+  }
+
+  protected class ColumnsOfRequest {
+    private List<Integer> columnIDs;
+    private int requestSerial;
+
+    public ColumnsOfRequest(List<Integer> columnIDs, int requestSerial) {
+      this.columnIDs = columnIDs;
+      this.requestSerial = requestSerial;
+    }
+
+    public List<Integer> getColumnIDs() {
+      return columnIDs;
+    }
+
+    public int getRequestSerial() {
+      return requestSerial;
+    }
+  }
+
   public class TableRequest implements ResponseListener {
 
     Target target;
@@ -333,6 +364,8 @@ public class TableUtils extends AbstractSnmpUtility {
     private Vector<OID> lastSent = null;
     private LinkedList<Row> rowCache = new LinkedList<Row>();
     protected Vector<OID> lastReceived;
+    private int requestSerial = Integer.MIN_VALUE;
+    private List<Integer> requestSerialsPending = Collections.synchronizedList(new LinkedList<Integer>());
 
     volatile boolean finished = false;
 
@@ -357,6 +390,8 @@ public class TableUtils extends AbstractSnmpUtility {
         }
       }
     }
+
+
 
     public boolean sendNextChunk() {
       if (sent >= lastReceived.size()) {
@@ -408,7 +443,8 @@ public class TableUtils extends AbstractSnmpUtility {
         if (pdu.size() == 0) {
           return false;
         }
-        sendRequest(pdu, target, sentColumns);
+        ColumnsOfRequest columnsOfRequest = new ColumnsOfRequest(sentColumns, requestSerial++);
+        sendRequest(pdu, target, columnsOfRequest);
       }
       catch (Exception ex) {
         logger.error(ex);
@@ -421,10 +457,25 @@ public class TableUtils extends AbstractSnmpUtility {
       return true;
     }
 
-    protected void sendRequest(PDU pdu, Target target, List<Integer> sendColumns)
+    protected void sendRequest(PDU pdu, Target target, ColumnsOfRequest sendColumns)
         throws IOException
     {
+      requestSerialsPending.add(sendColumns.getRequestSerial());
       session.send(pdu, target, sendColumns, this);
+    }
+
+    protected synchronized boolean removePending(int requestSerial) {
+      boolean inOrder = true;
+      for (Iterator<Integer> it = requestSerialsPending.iterator(); it.hasNext();) {
+        int pendingRequestSerial = it.next();
+        if (pendingRequestSerial == requestSerial) {
+          it.remove();
+        }
+        else {
+          inOrder = false;
+        }
+      }
+      return inOrder;
     }
 
     @SuppressWarnings("unchecked")
@@ -437,7 +488,8 @@ public class TableUtils extends AbstractSnmpUtility {
       synchronized (this) {
         if (checkResponse(event)) {
           boolean anyMatchInChunk = false;
-          List<Integer> colsOfRequest = (List<Integer>) event.getUserObject();
+          ColumnsOfRequest colsOfRequest = (ColumnsOfRequest) event.getUserObject();
+          boolean receivedInOrder = removePending(colsOfRequest.getRequestSerial());
           PDU request = event.getRequest();
           PDU response = event.getResponse();
           int cols = request.size();
@@ -447,7 +499,7 @@ public class TableUtils extends AbstractSnmpUtility {
             Row row = null;
             anyMatchInChunk = false;
             for (int c = 0; c < request.size(); c++) {
-              int pos = colsOfRequest.get(c);
+              int pos = colsOfRequest.getColumnIDs().get(c);
               VariableBinding vb = response.get(r * cols + c);
               if (vb.isException()) {
                 continue;
@@ -527,26 +579,31 @@ public class TableUtils extends AbstractSnmpUtility {
           while ((rowCache.size() > 0) &&
                  ((rowCache.getFirst()).getNumComplete() ==
                   columnOIDs.length) &&
+                  // make sure, row is not prematurely deemed complete
+                  (receivedInOrder) &&
                  ((lastMinIndex == null) ||
                   ((rowCache.getFirst()).getRowIndex().compareTo(
                       lastMinIndex) < 0))) {
+
             if (!listener.next(getTableEvent())) {
               finished = true;
               listener.finished(new TableEvent(this, userObject));
               return;
             }
           }
-          boolean sentChunk;
-          if (!(sentChunk = sendNextChunk())) {
-            if (anyMatch) {
-              sent = 0;
-              anyMatch = false;
-              sentChunk = sendNextChunk();
-            }
-            if (!sentChunk) {
-              emptyCache();
-              finished = true;
-              listener.finished(new TableEvent(this, userObject));
+          if (receivedInOrder) {
+            boolean sentChunk;
+            if (!(sentChunk = sendNextChunk())) {
+              if (anyMatch) {
+                sent = 0;
+                anyMatch = false;
+                sentChunk = sendNextChunk();
+              }
+              if (!sentChunk) {
+                emptyCache();
+                finished = true;
+                listener.finished(new TableEvent(this, userObject));
+              }
             }
           }
         }

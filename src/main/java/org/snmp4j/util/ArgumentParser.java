@@ -444,8 +444,8 @@ public class ArgumentParser {
                                   ArgumentParameter parameterFormatDetail) {
       super((value != null)
             ? "Invalid value '"+value+"' at position "+position
-            : "Mandatory parameter "+parameterFormat.getOption()+"("+
-            parameterFormatDetail.getName()+") not specified", position);
+            : "Mandatory parameter "+((parameterFormat ==  null) ? "<unknown>" : parameterFormat.getOption())+"("+
+              ((parameterFormatDetail == null) ? "<unknown>" : parameterFormatDetail.getName())+") not specified", position);
       this.parameterFormat = parameterFormat;
       this.parameterFormatDetail = parameterFormatDetail;
       this.value = value;

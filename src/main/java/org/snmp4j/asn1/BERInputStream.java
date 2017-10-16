@@ -134,7 +134,7 @@ public class BERInputStream extends InputStream {
    * @throws IOException if an I/O error occurs.
    */
   public int read(byte[] b, int off, int len) throws IOException {
-    if (buffer.remaining() <= 0) {
+    if (buffer.remaining() <= 0 && (len > 0)) {
       return -1;
     }
     int read = Math.min(buffer.remaining(), b.length);

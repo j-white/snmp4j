@@ -36,8 +36,10 @@ public class AuthMD5
 
   public static final OID ID = new OID(SnmpConstants.usmHMACMD5AuthProtocol);
 
+  public static final int KEY_LENGTH = 16;
+
   public AuthMD5() {
-    super("MD5", 16);
+    super("MD5", KEY_LENGTH);
   }
 
   public OID getID() {

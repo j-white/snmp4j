@@ -30,7 +30,7 @@ import java.util.*;
  * with tasks and an additional task is added.
  *
  * @author Frank Fock
- * @version 1.6
+ * @version 2.5.7
  * @since 1.0.2
  */
 public class ThreadPool implements WorkerPool {
@@ -80,23 +80,30 @@ public class ThreadPool implements WorkerPool {
    * @param task
    *    a <code>Runnable</code> to execute.
    */
-  public synchronized void execute(WorkerTask task) {
+  public void execute(WorkerTask task) {
     while (true) {
       for (int i=0; i<taskManagers.size(); i++) {
         TaskManager tm = taskManagers.get(i);
         if ((respawnThreads) && (!tm.isAlive())) {
           tm = new TaskManager(getTaskManagerName(name, i));
+          taskManagers.set(i, tm);
         }
         if (tm.isIdle()) {
-          tm.execute(task);
-          return;
+          try {
+            tm.execute(task);
+            return;
+          }
+          catch (IllegalStateException isex) {
+            // ignore
+          }
         }
       }
-      try {
-        wait();
-      }
-      catch (InterruptedException ex) {
-        handleInterruptedExceptionOnExecute(ex, task);
+      synchronized (this) {
+        try {
+          wait();
+        } catch (InterruptedException ex) {
+          handleInterruptedExceptionOnExecute(ex, task);
+        }
       }
     }
   }
@@ -130,15 +137,20 @@ public class ThreadPool implements WorkerPool {
    *    <code>true</code> if the task is executing.
    * @since 1.6
    */
-  public synchronized boolean tryToExecute(WorkerTask task) {
+  public boolean tryToExecute(WorkerTask task) {
     for (int i=0; i<taskManagers.size(); i++) {
       TaskManager tm = taskManagers.get(i);
       if ((respawnThreads) && (!tm.isAlive())) {
         tm = new TaskManager(getTaskManagerName(name, i));
       }
       if (tm.isIdle()) {
-        tm.execute(task);
-        return true;
+        try {
+          tm.execute(task);
+          return true;
+        }
+        catch (IllegalStateException isex) {
+          // ignore
+        }
       }
     }
     return false;
@@ -184,16 +196,14 @@ public class ThreadPool implements WorkerPool {
       stop = true;
       tms = (List<? extends TaskManager>) taskManagers.clone();
     }
-    for (int i=0; i<tms.size(); i++) {
-      TaskManager tm = tms.get(i);
+    for (TaskManager tm : tms) {
       tm.terminate();
       synchronized (tm) {
         tm.notify();
       }
       try {
         tm.join();
-      }
-      catch (InterruptedException ex) {
+      } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();
       }
     }
@@ -202,10 +212,9 @@ public class ThreadPool implements WorkerPool {
   /**
    * Cancels all threads non-blocking by interrupting them.
    */
-  public synchronized void cancel() {
+  public void cancel() {
     stop = true;
-    for (int i=0; i<taskManagers.size(); i++) {
-      TaskManager tm = taskManagers.get(i);
+    for (TaskManager tm : taskManagers) {
       tm.terminate();
       tm.interrupt();
     }
@@ -215,9 +224,8 @@ public class ThreadPool implements WorkerPool {
    * Interrupts all threads in the pool.
    * @since 1.6
    */
-  public synchronized void interrupt() {
-    for (int i=0; i<taskManagers.size(); i++) {
-      TaskManager tm = taskManagers.get(i);
+  public void interrupt() {
+    for (TaskManager tm : taskManagers) {
       tm.interrupt();
     }
   }
@@ -228,9 +236,8 @@ public class ThreadPool implements WorkerPool {
    *    <code>true</code> if all threads are idle.
    * @since 1.6
    */
-  public synchronized boolean isIdle() {
-    for (int i=0; i<taskManagers.size(); i++) {
-      TaskManager tm = taskManagers.get(i);
+  public boolean isIdle() {
+    for (TaskManager tm : taskManagers) {
       if (!tm.isIdle()) {
         return false;
       }
@@ -258,8 +265,8 @@ public class ThreadPool implements WorkerPool {
       while ((!stop) && run) {
         if (task != null) {
           task.run();
+          task = null;
           synchronized (ThreadPool.this) {
-            task = null;
             ThreadPool.this.notify();
           }
         }

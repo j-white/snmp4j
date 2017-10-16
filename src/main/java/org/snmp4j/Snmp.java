@@ -371,6 +371,32 @@ public class Snmp implements Session, CommandResponder {
   }
 
   /**
+   * Sets the message dispatcher associated with this SNMP session. The {@link CommandResponder} registration is
+   * removed from the existing message dispatcher (if not {@code null}).
+   * @param messageDispatcher
+   *    a message dispatcher that processes incoming SNMP {@link PDU}s.
+   * @since 2.5.7
+   */
+  public void setMessageDispatcher(MessageDispatcher messageDispatcher) {
+    if (messageDispatcher == null) {
+      throw new NullPointerException();
+    }
+    Collection<TransportMapping> existingTransportMappings = new LinkedList<TransportMapping>();
+    if (this.messageDispatcher != null) {
+      existingTransportMappings = messageDispatcher.getTransportMappings();
+      for (TransportMapping tm : existingTransportMappings) {
+        removeTransportMapping(tm);
+      }
+      this.messageDispatcher.removeCommandResponder(this);
+    }
+    this.messageDispatcher = messageDispatcher;
+    this.messageDispatcher.addCommandResponder(this);
+    for (TransportMapping tm : existingTransportMappings) {
+      addTransportMapping(tm);
+    }
+  }
+
+  /**
    * Adds a <code>TransportMapping</code> to this SNMP session.
    * @param transportMapping
    *    a <code>TransportMapping</code> instance.
@@ -1413,7 +1439,7 @@ public class Snmp implements Session, CommandResponder {
         pendingRequests.remove(handle);
         if (intime && (reqListener != null)) {
           // return report
-          reqListener.onResponse(new ResponseEvent(this,
+          reqListener.onResponse(new ResponseEvent(Snmp.this,
               e.getPeerAddress(),
               reqPDU,
               pdu,

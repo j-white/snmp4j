@@ -119,9 +119,9 @@ public interface PrivacyProtocol extends SecurityProtocol {
   int getMinKeyLength();
 
   /**
-   * Gets the maximum key size for this privacy protcol.
+   * Gets the maximum key size for this privacy protocol.
    * @return
-   *    the minimum key size for this privacy protcol.
+   *    the minimum key size for this privacy protocol.
    */
   int getMaxKeyLength();
 

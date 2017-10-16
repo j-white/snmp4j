@@ -49,6 +49,6 @@ public class PrivAES192With3DESKeyExtension extends PrivAESWith3DESKeyExtension 
 
   @Override
   public OID getDefaultID() {
-    return null;
+    return (OID)ID.clone();
   }
 }

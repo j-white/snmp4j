@@ -229,6 +229,8 @@ public final class SnmpConstants {
     new OID(new int[] { 1,3,6,1,2,1,1,7,0 });
   public static final OID sysOREntry =
     new OID(new int[] { 1,3,6,1,2,1,1,9,1 });
+  public static final OID system =
+          new OID(new int[] { 1,3,6,1,2,1,1 });
 
   // contexts
   public static final OID snmpUnavailableContexts =
@@ -295,6 +297,7 @@ public final class SnmpConstants {
     new OID(new int[] { 1,3,6,1,2,1,189,1,1,7,0 });
   public static final OID snmpSshtmSessionInvalidCaches =
     new OID(new int[] { 1,3,6,1,2,1,189,1,1,8,0 });
+
 
   // SNMP4J-STATISTICS-MIB
   /**
@@ -518,6 +521,33 @@ public final class SnmpConstants {
       oid.append(specificID);
     }
     return oid;
+  }
+
+  /**
+   * Enumeration of the textual convention StorageType defined in SNMPv2-TC MIB.
+   * @since 2.5.7
+   */
+  public enum StorageTypeEnum {
+    other(1),
+    _volatile(2),
+    nonVolatile(3),
+    permanent(4),
+    readOnly(5);
+
+    private int smiValue;
+
+    StorageTypeEnum(int value) {
+      this.smiValue = value;
+    }
+
+    /**
+     * Gets the SMI value of the enumeration for setting a StorageType OBJECT-TYPE.
+     * @return
+     *    the SMI integer representation value.
+     */
+    public int getSmiValue() {
+      return smiValue;
+    }
   }
 }
 

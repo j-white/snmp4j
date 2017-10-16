@@ -31,7 +31,7 @@ public class VersionInfo {
 
   public static final int MAJOR = 2;
   public static final int MINOR = 5;
-  public static final int UPDATE = 5;
+  public static final int UPDATE = 8;
   public static final String PATCH = "";
 
   public static final String VERSION =

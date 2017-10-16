@@ -20,6 +20,8 @@
 package org.snmp4j.security;
 
 import java.io.Serializable;
+
+import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.OID;
 
@@ -28,7 +30,7 @@ import org.snmp4j.smi.OID;
  * Local Configuration Datastore (LCD).
  *
  * @author Frank Fock
- * @version 1.1
+ * @version 2.5.7
  */
 public class UsmUserEntry implements Serializable, Comparable {
 
@@ -39,6 +41,7 @@ public class UsmUserEntry implements Serializable, Comparable {
   private UsmUser usmUser;
   private byte[] authenticationKey;
   private byte[] privacyKey;
+  private SnmpConstants.StorageTypeEnum storageType = SnmpConstants.StorageTypeEnum.nonVolatile;
 
   /**
    * Creates a new user entry with empty engine ID and empty user.
@@ -183,8 +186,16 @@ public class UsmUserEntry implements Serializable, Comparable {
     return result;
   }
 
+  public SnmpConstants.StorageTypeEnum getStorageType() {
+    return storageType;
+  }
+
+  public void setStorageType(SnmpConstants.StorageTypeEnum storageType) {
+    this.storageType = storageType;
+  }
+
   public String toString() {
-    return "UsmUserEntry[userName="+userName+",usmUser="+usmUser+"]";
+    return "UsmUserEntry[userName="+userName+",usmUser="+usmUser+",storageType="+storageType+"]";
   }
 
 }

@@ -597,7 +597,7 @@ public class USM extends SNMPv3SecurityModel {
       if (secName == null) {
         if (logger.isDebugEnabled()) {
           logger.debug("RFC3414 §3.2.4 Unknown security name: " +
-                       securityName.toHexString());
+                       securityName.toHexString()+ " (" + securityName + ")");
         }
         if (statusInfo != null) {
           CounterEvent event = new CounterEvent(this,
@@ -623,7 +623,7 @@ public class USM extends SNMPv3SecurityModel {
       if (user == null) {
         if (logger.isDebugEnabled()) {
           logger.debug("RFC3414 §3.2.4 Unknown security name: " +
-                       securityName.toHexString()+ " for engine ID "+
+                       securityName.toHexString()+"( "+securityName+") for engine ID "+
                        securityEngineID.toHexString());
         }
         CounterEvent event =
@@ -826,6 +826,24 @@ public class USM extends SNMPv3SecurityModel {
   }
 
   /**
+   * Adds an USM user to the internal user name table.
+   * The user's security name is used as userName.
+   * The storage type member of the supplied by {@link UsmUserEntry#getStorageType()} defines the storage type
+   * of the new USM user table entry.
+   *
+   * Caution: This is a low level call and the provided UsmUserEntry must contain already correctly localized
+   * authentication and privacy keys as well as a correct user engine ID.
+   *
+   * @param usmUserEntry
+   *    the {@link UsmUserEntry} to add.
+   * @since 2.5.7
+   */
+  public void addUsmUserEntry(UsmUserEntry usmUserEntry) {
+    userTable.addUser(usmUserEntry);
+    fireUsmUserChange(new UsmUserEvent(this, usmUserEntry, UsmUserEvent.USER_ADDED));
+  }
+
+  /**
    * Adds an USM user to the internal user name table and associates it with
    * an authoritative engine ID. This user can only be used with the specified
    * engine ID - other engine IDs cannot be discovered on behalf of this entry.
@@ -900,8 +918,7 @@ public class USM extends SNMPv3SecurityModel {
         new UsmUserEntry(userName, userEngineID, user);
     entry.setAuthenticationKey(authKey);
     entry.setPrivacyKey(privKey);
-    userTable.addUser(entry);
-    fireUsmUserChange(new UsmUserEvent(this, entry, UsmUserEvent.USER_ADDED));
+    addUsmUserEntry(entry);
   }
 
   /**
@@ -1150,7 +1167,6 @@ public class USM extends SNMPv3SecurityModel {
   protected void fireUsmUserChange(UsmUserEvent e) {
     if (usmUserListeners != null) {
       Vector<UsmUserListener> listeners = usmUserListeners;
-      int count = listeners.size();
       for (UsmUserListener listener : listeners) {
         listener.usmUserChange(e);
       }
